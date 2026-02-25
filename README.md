@@ -11,10 +11,6 @@ Simple cloud storage backend realisation
 **Deploy**: 
 - Docker + Docker Compose
 
-**Observability**:
-- Prometheus
-- Graphana
-
 ## **Starting API on Your Machine Tutorial**
 
 ```bash
