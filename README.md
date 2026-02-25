@@ -30,4 +30,4 @@ cp .env.example .env
 make docker-up # Automatically Executes 'make proto' and 'make build' before starting API with 'docker compose'
 
 # 4. For more options info
-make help```
+make help
