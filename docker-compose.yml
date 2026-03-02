@@ -134,7 +134,22 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-        
+    networks:
+      - cloud_storage_network
+
+  # Mail Service
+  mail-service:
+    build:
+      context: .
+      dockerfile: deployments/docker/Dockerfile.mail
+    container_name: cloud_storage_mail
+    environment:
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_EMAIL_ADDRESS: ${SMTP_EMAIL_ADDRESS}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+    ports:
+      - "50054:50054"
     networks:
       - cloud_storage_network
 
@@ -160,6 +175,7 @@ services:
       - file-service
     networks:
       - cloud_storage_network
+
 
 volumes:
   postgres_data:

@@ -18,6 +18,9 @@ proto:
 	@protoc --go_out=. --go_opt=paths=source_relative \
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		internal/api/file.proto
+	@protoc --go_out=. --go_opt=paths=source_relative \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		internal/api/mail.proto
 	@echo "Protobuf files generated."
 
 # Build project
@@ -26,6 +29,7 @@ build: proto
 	@go build -o bin/auth-service ./cmd/auth
 	@go build -o bin/metadata-service ./cmd/metadata
 	@go build -o bin/file-service ./cmd/file
+	@go build -o bin/mail-service ./cmd/mail
 	@go build -o bin/gateway ./cmd/gateway
 	@echo "Build complete."
 
@@ -35,6 +39,7 @@ docker-build: build
 	@docker build -f deployments/docker/Dockerfile.auth -t cloud-storage/auth-service:latest .
 	@docker build -f deployments/docker/Dockerfile.metadata -t cloud-storage/metadata-service:latest .
 	@docker build -f deployments/docker/Dockerfile.file -t cloud-storage/file-service:latest .
+	@docker build -f deployments/docker/Dockerfile.mail -t cloud-storage/mail-service:latest .
 	@docker build -f deployments/docker/Dockerfile.gateway -t cloud-storage/gateway:latest .
 	@echo "Docker images built."
 
