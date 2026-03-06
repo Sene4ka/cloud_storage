@@ -6,15 +6,17 @@ import (
 	"time"
 
 	"github.com/Sene4ka/cloud_storage/internal/models"
+	"github.com/Sene4ka/cloud_storage/internal/utils"
 )
 
 type FileRepository interface {
 	Create(ctx context.Context, file *models.File) error
 	GetByID(ctx context.Context, id string) (*models.File, error)
-	ListByUserID(ctx context.Context, userID string, page, pageSize int, sortBy, sortOrder, search string) ([]*models.File, int, error)
+	ListByUserID(ctx context.Context, userID string, page, pageSize int, sortBy, sortOrder, search string, isTrashed *bool) ([]*models.File, int, error)
 	Update(ctx context.Context, file *models.File) error
-	Delete(ctx context.Context, id, userID string) error
 	CheckAccess(ctx context.Context, fileID, userID string) (bool, string, string, error)
+	Delete(ctx context.Context, id, userID string) error
+	SetTrashed(ctx context.Context, fileID, userID string, isTrashed bool) error
 }
 
 type metadataService struct {
@@ -23,26 +25,6 @@ type metadataService struct {
 
 func NewMetadataService(fileRepo FileRepository) *metadataService {
 	return &metadataService{fileRepo: fileRepo}
-}
-
-func (s *metadataService) CreateMetadata(ctx context.Context, input *CreateMetadataInput) (*CreateMetadataOutput, error) {
-	file := models.NewFile(
-		input.UserID,
-		input.Filename,
-		input.OriginalName,
-		input.MimeType,
-		input.StoragePath,
-		input.Bucket,
-		input.Size,
-		input.IsPublic,
-		input.Tags,
-	)
-
-	if err := s.fileRepo.Create(ctx, file); err != nil {
-		return nil, fmt.Errorf("failed to create metadata: %w", err)
-	}
-
-	return &CreateMetadataOutput{File: file}, nil
 }
 
 func (s *metadataService) GetMetadata(ctx context.Context, input *GetMetadataInput) (*GetMetadataOutput, error) {
@@ -67,6 +49,7 @@ func (s *metadataService) ListMetadata(ctx context.Context, input *ListMetadataI
 		input.SortBy,
 		input.SortOrder,
 		input.Search,
+		input.IsTrashed,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list metadata: %w", err)
@@ -81,6 +64,10 @@ func (s *metadataService) ListMetadata(ctx context.Context, input *ListMetadataI
 }
 
 func (s *metadataService) UpdateMetadata(ctx context.Context, input *UpdateMetadataInput) (*UpdateMetadataOutput, error) {
+	if err := utils.ValidatePath(input.Path); err != nil {
+		return nil, fmt.Errorf("invalid path: %w", err)
+	}
+
 	existing, err := s.fileRepo.GetByID(ctx, input.FileID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get metadata: %w", err)
@@ -92,6 +79,7 @@ func (s *metadataService) UpdateMetadata(ctx context.Context, input *UpdateMetad
 
 	existing.Filename = input.Filename
 	existing.OriginalName = input.OriginalName
+	existing.Path = input.Path
 	existing.IsPublic = input.IsPublic
 	existing.Tags = input.Tags
 	existing.UpdatedAt = time.Now()
@@ -101,13 +89,6 @@ func (s *metadataService) UpdateMetadata(ctx context.Context, input *UpdateMetad
 	}
 
 	return &UpdateMetadataOutput{File: existing}, nil
-}
-
-func (s *metadataService) DeleteMetadata(ctx context.Context, input *DeleteMetadataInput) (*DeleteMetadataOutput, error) {
-	if err := s.fileRepo.Delete(ctx, input.FileID, input.UserID); err != nil {
-		return nil, fmt.Errorf("failed to delete metadata: %w", err)
-	}
-	return &DeleteMetadataOutput{Success: true}, nil
 }
 
 func (s *metadataService) CheckAccess(ctx context.Context, input *CheckAccessInput) (*CheckAccessOutput, error) {
@@ -121,4 +102,25 @@ func (s *metadataService) CheckAccess(ctx context.Context, input *CheckAccessInp
 		StoragePath: storagePath,
 		Bucket:      bucket,
 	}, nil
+}
+
+func (s *metadataService) TrashFile(ctx context.Context, input *TrashFileInput) (*TrashFileOutput, error) {
+	if err := s.fileRepo.SetTrashed(ctx, input.FileID, input.UserID, true); err != nil {
+		return nil, err
+	}
+	return &TrashFileOutput{Success: true}, nil
+}
+
+func (s *metadataService) RestoreFile(ctx context.Context, input *RestoreFileInput) (*RestoreFileOutput, error) {
+	if err := s.fileRepo.SetTrashed(ctx, input.FileID, input.UserID, false); err != nil {
+		return nil, err
+	}
+	return &RestoreFileOutput{Success: true}, nil
+}
+
+func (s *metadataService) DeleteFileMetadata(ctx context.Context, input *DeleteFileMetadataInput) (*DeleteFileMetadataOutput, error) {
+	if err := s.fileRepo.Delete(ctx, input.FileID, input.UserID); err != nil {
+		return nil, fmt.Errorf("failed to delete file metadata: %w", err)
+	}
+	return &DeleteFileMetadataOutput{Success: true}, nil
 }

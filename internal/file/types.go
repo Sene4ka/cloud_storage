@@ -9,6 +9,7 @@ import (
 type InitiateUploadInput struct {
 	UserID   string
 	Filename string
+	Path     string
 	MimeType string
 	Size     int64
 	IsPublic bool

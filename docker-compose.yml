@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PgSQL DB
   postgres:
@@ -10,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5432:5432"
+      - "5432:${DB_PORT}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d
@@ -21,6 +19,23 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Migrations
+  migrate:
+    image: migrate/migrate:v4.16.2
+    container_name: cloud_storage_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations
+    command: [
+      "-path", "/migrations",
+      "-database", "postgres://${DB_USER}:${DB_PASSWORD}@postgres:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}",
+      "up"
+    ]
+    networks:
+      - cloud_storage_network
 
   # Redis
   redis:

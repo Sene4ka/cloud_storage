@@ -8,6 +8,7 @@ type CreateMetadataInput struct {
 	UserID       string
 	Filename     string
 	OriginalName string
+	Path         string
 	Size         int64
 	MimeType     string
 	StoragePath  string
@@ -36,6 +37,7 @@ type ListMetadataInput struct {
 	SortBy    string
 	SortOrder string
 	Search    string
+	IsTrashed *bool
 }
 
 type ListMetadataOutput struct {
@@ -50,21 +52,13 @@ type UpdateMetadataInput struct {
 	UserID       string
 	Filename     string
 	OriginalName string
+	Path         string
 	IsPublic     bool
 	Tags         map[string]string
 }
 
 type UpdateMetadataOutput struct {
 	File *models.File
-}
-
-type DeleteMetadataInput struct {
-	FileID string
-	UserID string
-}
-
-type DeleteMetadataOutput struct {
-	Success bool
 }
 
 type CheckAccessInput struct {
@@ -76,4 +70,31 @@ type CheckAccessOutput struct {
 	HasAccess   bool
 	StoragePath string
 	Bucket      string
+}
+
+type TrashFileInput struct {
+	FileID string
+	UserID string
+}
+
+type TrashFileOutput struct {
+	Success bool
+}
+
+type RestoreFileInput struct {
+	FileID string
+	UserID string
+}
+
+type RestoreFileOutput struct {
+	Success bool
+}
+
+type DeleteFileMetadataInput struct {
+	FileID string
+	UserID string
+}
+
+type DeleteFileMetadataOutput struct {
+	Success bool
 }

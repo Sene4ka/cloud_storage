@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Sene4ka/cloud_storage/internal/api"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type FileHandler struct {
@@ -33,6 +34,13 @@ func (h *FileHandler) HandleFiles(w http.ResponseWriter, r *http.Request) {
 			pageSize = 20
 		}
 
+		var isTrashed *wrapperspb.BoolValue
+		if thr := r.URL.Query().Get("is_trashed"); thr != "" {
+			if val, err := strconv.ParseBool(thr); err == nil {
+				isTrashed = wrapperspb.Bool(val)
+			}
+		}
+
 		resp, err := h.metadataClient.ListMetadata(r.Context(), &api.ListMetadataRequest{
 			UserId:    userID,
 			Page:      int32(page),
@@ -40,6 +48,7 @@ func (h *FileHandler) HandleFiles(w http.ResponseWriter, r *http.Request) {
 			SortBy:    r.URL.Query().Get("sort_by"),
 			SortOrder: r.URL.Query().Get("sort_order"),
 			Search:    r.URL.Query().Get("search"),
+			IsTrashed: isTrashed,
 		})
 
 		if err != nil {
@@ -83,8 +92,8 @@ func (h *FileHandler) HandleFileDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		JSONResponse(w, http.StatusOK, resp)
 	case http.MethodDelete:
-		_, err := h.metadataClient.DeleteMetadata(r.Context(), &api.DeleteMetadataRequest{
-			Id:     fileID,
+		_, err := h.fileClient.DeleteFile(r.Context(), &api.DeleteFileRequest{
+			FileId: fileID,
 			UserId: userID,
 		})
 
@@ -92,6 +101,7 @@ func (h *FileHandler) HandleFileDetail(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusInternalServerError)
 			return
 		}
+
 		JSONResponse(w, http.StatusOK, map[string]bool{"success": true})
 	default:
 		http.Error(w, `{"error": "method not allowed"}`, http.StatusMethodNotAllowed)
@@ -170,5 +180,49 @@ func (h *FileHandler) HandleDownloadLink(w http.ResponseWriter, r *http.Request)
 		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusNotFound)
 		return
 	}
+	JSONResponse(w, http.StatusOK, resp)
+}
+
+func (h *FileHandler) HandleTrashFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error": "method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Context().Value("userID").(string)
+	fileID := strings.TrimPrefix(r.URL.Path, "/api/v1/files/trash/")
+
+	resp, err := h.metadataClient.TrashFile(r.Context(), &api.TrashFileRequest{
+		FileId: fileID,
+		UserId: userID,
+	})
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, resp)
+}
+
+func (h *FileHandler) HandleRestoreFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error": "method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Context().Value("userID").(string)
+	fileID := strings.TrimPrefix(r.URL.Path, "/api/v1/files/restore/")
+
+	resp, err := h.metadataClient.RestoreFile(r.Context(), &api.RestoreFileRequest{
+		FileId: fileID,
+		UserId: userID,
+	})
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+
 	JSONResponse(w, http.StatusOK, resp)
 }

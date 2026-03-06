@@ -28,6 +28,7 @@ func (s *Server) InitiateUpload(ctx context.Context, req *api.InitiateUploadRequ
 	out, err := s.service.InitiateUpload(ctx, &InitiateUploadInput{
 		UserID:   req.UserId,
 		Filename: req.Filename,
+		Path:     req.Path,
 		MimeType: req.MimeType,
 		Size:     req.Size,
 		IsPublic: req.IsPublic,
@@ -88,28 +89,4 @@ func (s *Server) DeleteFile(ctx context.Context, req *api.DeleteFileRequest) (*a
 		return nil, err
 	}
 	return &api.DeleteFileResponse{Success: out.Success}, nil
-}
-
-func (s *Server) GetFileInfo(ctx context.Context, req *api.GetFileInfoRequest) (*api.GetFileInfoResponse, error) {
-	out, err := s.service.GetFileInfo(ctx, &GetFileInfoInput{
-		FileID: req.FileId,
-		UserID: req.UserId,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &api.GetFileInfoResponse{
-		Id:           out.File.ID,
-		UserId:       out.File.UserID,
-		Filename:     out.File.Filename,
-		OriginalName: out.File.OriginalName,
-		Size:         out.File.Size,
-		MimeType:     out.File.MimeType,
-		StoragePath:  out.File.StoragePath,
-		Bucket:       out.File.Bucket,
-		CreatedAt:    timestamppb.New(out.File.CreatedAt),
-		UpdatedAt:    timestamppb.New(out.File.UpdatedAt),
-		IsPublic:     out.File.IsPublic,
-		Tags:         out.File.Tags,
-	}, nil
 }

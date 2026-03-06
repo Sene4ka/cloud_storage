@@ -9,12 +9,12 @@ import (
 )
 
 type MetadataService interface {
-	CreateMetadata(ctx context.Context, input *CreateMetadataInput) (*CreateMetadataOutput, error)
 	GetMetadata(ctx context.Context, input *GetMetadataInput) (*GetMetadataOutput, error)
 	ListMetadata(ctx context.Context, input *ListMetadataInput) (*ListMetadataOutput, error)
 	UpdateMetadata(ctx context.Context, input *UpdateMetadataInput) (*UpdateMetadataOutput, error)
-	DeleteMetadata(ctx context.Context, input *DeleteMetadataInput) (*DeleteMetadataOutput, error)
 	CheckAccess(ctx context.Context, input *CheckAccessInput) (*CheckAccessOutput, error)
+	TrashFile(ctx context.Context, input *TrashFileInput) (*TrashFileOutput, error)
+	RestoreFile(ctx context.Context, input *RestoreFileInput) (*RestoreFileOutput, error)
 }
 
 type Server struct {
@@ -24,26 +24,6 @@ type Server struct {
 
 func NewServer(service MetadataService) *Server {
 	return &Server{service: service}
-}
-
-func (s *Server) CreateMetadata(ctx context.Context, req *api.CreateMetadataRequest) (*api.CreateMetadataResponse, error) {
-	out, err := s.service.CreateMetadata(ctx, &CreateMetadataInput{
-		UserID:       req.UserId,
-		Filename:     req.Filename,
-		OriginalName: req.OriginalName,
-		Size:         req.Size,
-		MimeType:     req.MimeType,
-		StoragePath:  req.StoragePath,
-		Bucket:       req.Bucket,
-		IsPublic:     req.IsPublic,
-		Tags:         req.Tags,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &api.CreateMetadataResponse{
-		Metadata: convertToProto(out.File),
-	}, nil
 }
 
 func (s *Server) GetMetadata(ctx context.Context, req *api.GetMetadataRequest) (*api.GetMetadataResponse, error) {
@@ -60,6 +40,12 @@ func (s *Server) GetMetadata(ctx context.Context, req *api.GetMetadataRequest) (
 }
 
 func (s *Server) ListMetadata(ctx context.Context, req *api.ListMetadataRequest) (*api.ListMetadataResponse, error) {
+	var isThrashed *bool
+	if req.IsTrashed != nil {
+		val := req.IsTrashed.Value
+		isThrashed = &val
+	}
+
 	out, err := s.service.ListMetadata(ctx, &ListMetadataInput{
 		UserID:    req.UserId,
 		Page:      int(req.Page),
@@ -67,6 +53,7 @@ func (s *Server) ListMetadata(ctx context.Context, req *api.ListMetadataRequest)
 		SortBy:    req.SortBy,
 		SortOrder: req.SortOrder,
 		Search:    req.Search,
+		IsTrashed: isThrashed,
 	})
 	if err != nil {
 		return nil, err
@@ -102,17 +89,6 @@ func (s *Server) UpdateMetadata(ctx context.Context, req *api.UpdateMetadataRequ
 	}, nil
 }
 
-func (s *Server) DeleteMetadata(ctx context.Context, req *api.DeleteMetadataRequest) (*api.DeleteMetadataResponse, error) {
-	out, err := s.service.DeleteMetadata(ctx, &DeleteMetadataInput{
-		FileID: req.Id,
-		UserID: req.UserId,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &api.DeleteMetadataResponse{Success: out.Success}, nil
-}
-
 func (s *Server) CheckAccess(ctx context.Context, req *api.CheckAccessRequest) (*api.CheckAccessResponse, error) {
 	out, err := s.service.CheckAccess(ctx, &CheckAccessInput{
 		FileID: req.FileId,
@@ -128,12 +104,44 @@ func (s *Server) CheckAccess(ctx context.Context, req *api.CheckAccessRequest) (
 	}, nil
 }
 
+func (s *Server) TrashFile(ctx context.Context, req *api.TrashFileRequest) (*api.TrashFileResponse, error) {
+	out, err := s.service.TrashFile(ctx, &TrashFileInput{
+		FileID: req.FileId,
+		UserID: req.UserId,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.TrashFileResponse{Success: out.Success}, nil
+}
+
+func (s *Server) RestoreFile(ctx context.Context, req *api.RestoreFileRequest) (*api.RestoreFileResponse, error) {
+	out, err := s.service.RestoreFile(ctx, &RestoreFileInput{
+		FileID: req.FileId,
+		UserID: req.UserId,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.RestoreFileResponse{Success: out.Success}, nil
+}
+
 func convertToProto(file *models.File) *api.FileMetadata {
+	var thrashedAt *timestamppb.Timestamp
+	if file.TrashedAt != nil {
+		thrashedAt = timestamppb.New(*file.TrashedAt)
+	}
+
 	return &api.FileMetadata{
 		Id:           file.ID,
 		UserId:       file.UserID,
 		Filename:     file.Filename,
 		OriginalName: file.OriginalName,
+		Path:         file.Path,
 		Size:         file.Size,
 		MimeType:     file.MimeType,
 		StoragePath:  file.StoragePath,
@@ -142,5 +150,7 @@ func convertToProto(file *models.File) *api.FileMetadata {
 		UpdatedAt:    timestamppb.New(file.UpdatedAt),
 		IsPublic:     file.IsPublic,
 		Tags:         file.Tags,
+		IsTrashed:    file.IsTrashed,
+		TrashedAt:    thrashedAt,
 	}
 }

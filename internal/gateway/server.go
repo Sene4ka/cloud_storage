@@ -59,6 +59,9 @@ func NewServer(config *configs.Config) (*Server, error) {
 	mux.HandleFunc("/api/v1/files/upload", middleware.WithAuth(server.fileHandler.HandleInitiateUpload, authClient))
 	mux.HandleFunc("/api/v1/files/upload/complete", middleware.WithAuth(server.fileHandler.HandleCompleteUpload, authClient))
 	mux.HandleFunc("/api/v1/files/download/", middleware.WithAuth(server.fileHandler.HandleDownloadLink, authClient))
+	mux.HandleFunc("/api/v1/files/trash/", middleware.WithAuth(server.fileHandler.HandleTrashFile, authClient))
+	mux.HandleFunc("/api/v1/files/restore/", middleware.WithAuth(server.fileHandler.HandleRestoreFile, authClient))
+
 	server.httpServer = &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", config.Server.Host, config.Server.Port),
 		Handler:      middleware.CORS(mux),

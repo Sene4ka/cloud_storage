@@ -8,12 +8,10 @@ import (
 	"github.com/Sene4ka/cloud_storage/internal/api"
 )
 
-type contextKey string
-
 const (
-	UserIDKey contextKey = "userID"
-	EmailKey  contextKey = "email"
-	TokenKey  contextKey = "token"
+	UserIDKey = "userID"
+	EmailKey  = "email"
+	TokenKey  = "token"
 )
 
 func WithAuth(next http.HandlerFunc, authClient api.AuthServiceClient) http.HandlerFunc {

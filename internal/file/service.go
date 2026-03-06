@@ -7,6 +7,7 @@ import (
 
 	"github.com/Sene4ka/cloud_storage/configs"
 	"github.com/Sene4ka/cloud_storage/internal/models"
+	"github.com/Sene4ka/cloud_storage/internal/utils"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
@@ -67,12 +68,17 @@ func NewFileService(fileRepo FileRepository, config *configs.Config) (*fileServi
 }
 
 func (s *fileService) InitiateUpload(ctx context.Context, input *InitiateUploadInput) (*InitiateUploadOutput, error) {
+	if err := utils.ValidatePath(input.Path); err != nil {
+		return nil, fmt.Errorf("invalid path: %w", err)
+	}
+
 	uniqueFilename := generateUniqueFilename(input.Filename)
 	storagePath := fmt.Sprintf("%s/%s/%s", input.UserID, time.Now().Format("2006/01/02"), uniqueFilename)
 	file := models.NewFile(
 		input.UserID,
 		uniqueFilename,
 		input.Filename,
+		input.Path,
 		input.MimeType,
 		storagePath,
 		s.config.MinIO.BucketName,

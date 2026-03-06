@@ -36,11 +36,7 @@ build: proto
 # Build Docker images
 docker-build: build
 	@echo "Building Docker images..."
-	@docker build -f deployments/docker/Dockerfile.auth -t cloud-storage/auth-service:latest .
-	@docker build -f deployments/docker/Dockerfile.metadata -t cloud-storage/metadata-service:latest .
-	@docker build -f deployments/docker/Dockerfile.file -t cloud-storage/file-service:latest .
-	@docker build -f deployments/docker/Dockerfile.mail -t cloud-storage/mail-service:latest .
-	@docker build -f deployments/docker/Dockerfile.gateway -t cloud-storage/gateway:latest .
+	@$(DOCKER_COMPOSE) build
 	@echo "Docker images built."
 
 # Start services with Docker Compose
