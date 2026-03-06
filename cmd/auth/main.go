@@ -42,9 +42,12 @@ func main() {
 	defer redisClient.Close()
 
 	userRepo := repositories.NewUserRepository(dbpool)
+	authService := auth.NewAuthService(userRepo, redisClient, config)
+
 	grpcServer := grpc.NewServer()
-	authServer := auth.NewServer(userRepo, redisClient, config)
+	authServer := auth.NewServer(authService)
 	api.RegisterAuthServiceServer(grpcServer, authServer)
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", "50051"))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)

@@ -34,8 +34,10 @@ func main() {
 	defer dbpool.Close()
 
 	fileRepo := repositories.NewFileRepository(dbpool)
+	metadataSvc := metadata.NewMetadataService(fileRepo)
+
 	grpcServer := grpc.NewServer()
-	metadataServer := metadata.NewServer(fileRepo)
+	metadataServer := metadata.NewServer(metadataSvc)
 	api.RegisterMetadataServiceServer(grpcServer, metadataServer)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", "50052"))

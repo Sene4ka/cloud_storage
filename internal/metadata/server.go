@@ -2,129 +2,129 @@ package metadata
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/Sene4ka/cloud_storage/internal/api"
 	"github.com/Sene4ka/cloud_storage/internal/models"
-	"github.com/Sene4ka/cloud_storage/internal/repositories"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type Server struct {
-	api.UnimplementedMetadataServiceServer
-	fileRepo *repositories.FileRepository
+type MetadataService interface {
+	CreateMetadata(ctx context.Context, input *CreateMetadataInput) (*CreateMetadataOutput, error)
+	GetMetadata(ctx context.Context, input *GetMetadataInput) (*GetMetadataOutput, error)
+	ListMetadata(ctx context.Context, input *ListMetadataInput) (*ListMetadataOutput, error)
+	UpdateMetadata(ctx context.Context, input *UpdateMetadataInput) (*UpdateMetadataOutput, error)
+	DeleteMetadata(ctx context.Context, input *DeleteMetadataInput) (*DeleteMetadataOutput, error)
+	CheckAccess(ctx context.Context, input *CheckAccessInput) (*CheckAccessOutput, error)
 }
 
-func NewServer(fileRepo *repositories.FileRepository) *Server {
-	return &Server{fileRepo: fileRepo}
+type Server struct {
+	api.UnimplementedMetadataServiceServer
+	service MetadataService
+}
+
+func NewServer(service MetadataService) *Server {
+	return &Server{service: service}
 }
 
 func (s *Server) CreateMetadata(ctx context.Context, req *api.CreateMetadataRequest) (*api.CreateMetadataResponse, error) {
-	file := models.NewFile(
-		req.UserId,
-		req.Filename,
-		req.OriginalName,
-		req.MimeType,
-		req.StoragePath,
-		req.Bucket,
-		req.Size,
-		req.IsPublic,
-		req.Tags,
-	)
-
-	if err := s.fileRepo.Create(ctx, file); err != nil {
-		return nil, fmt.Errorf("failed to create metadata: %w", err)
+	out, err := s.service.CreateMetadata(ctx, &CreateMetadataInput{
+		UserID:       req.UserId,
+		Filename:     req.Filename,
+		OriginalName: req.OriginalName,
+		Size:         req.Size,
+		MimeType:     req.MimeType,
+		StoragePath:  req.StoragePath,
+		Bucket:       req.Bucket,
+		IsPublic:     req.IsPublic,
+		Tags:         req.Tags,
+	})
+	if err != nil {
+		return nil, err
 	}
-
 	return &api.CreateMetadataResponse{
-		Metadata: convertToProto(file),
+		Metadata: convertToProto(out.File),
 	}, nil
 }
 
 func (s *Server) GetMetadata(ctx context.Context, req *api.GetMetadataRequest) (*api.GetMetadataResponse, error) {
-	file, err := s.fileRepo.GetByID(ctx, req.Id)
+	out, err := s.service.GetMetadata(ctx, &GetMetadataInput{
+		FileID: req.Id,
+		UserID: req.UserId,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get metadata: %w", err)
+		return nil, err
 	}
-
-	if file.UserID != req.UserId && !file.IsPublic {
-		return nil, fmt.Errorf("access denied")
-	}
-
 	return &api.GetMetadataResponse{
-		Metadata: convertToProto(file),
+		Metadata: convertToProto(out.File),
 	}, nil
 }
 
 func (s *Server) ListMetadata(ctx context.Context, req *api.ListMetadataRequest) (*api.ListMetadataResponse, error) {
-	files, total, err := s.fileRepo.ListByUserID(
-		ctx,
-		req.UserId,
-		int(req.Page),
-		int(req.PageSize),
-		req.SortBy,
-		req.SortOrder,
-		req.Search,
-	)
+	out, err := s.service.ListMetadata(ctx, &ListMetadataInput{
+		UserID:    req.UserId,
+		Page:      int(req.Page),
+		PageSize:  int(req.PageSize),
+		SortBy:    req.SortBy,
+		SortOrder: req.SortOrder,
+		Search:    req.Search,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list metadata: %w", err)
+		return nil, err
 	}
 
-	protoFiles := make([]*api.FileMetadata, len(files))
-	for i, file := range files {
-		protoFiles[i] = convertToProto(file)
+	protoItems := make([]*api.FileMetadata, len(out.Items))
+	for i, file := range out.Items {
+		protoItems[i] = convertToProto(file)
 	}
 
 	return &api.ListMetadataResponse{
-		Items:    protoFiles,
-		Total:    int32(total),
+		Items:    protoItems,
+		Total:    int32(out.Total),
 		Page:     req.Page,
 		PageSize: req.PageSize,
 	}, nil
 }
 
 func (s *Server) UpdateMetadata(ctx context.Context, req *api.UpdateMetadataRequest) (*api.UpdateMetadataResponse, error) {
-	existing, err := s.fileRepo.GetByID(ctx, req.Id)
+	out, err := s.service.UpdateMetadata(ctx, &UpdateMetadataInput{
+		FileID:       req.Id,
+		UserID:       req.UserId,
+		Filename:     req.Filename,
+		OriginalName: req.OriginalName,
+		IsPublic:     req.IsPublic,
+		Tags:         req.Tags,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get metadata: %w", err)
+		return nil, err
 	}
-
-	if existing.UserID != req.UserId {
-		return nil, fmt.Errorf("access denied")
-	}
-
-	existing.Filename = req.Filename
-	existing.OriginalName = req.OriginalName
-	existing.IsPublic = req.IsPublic
-	existing.Tags = req.Tags
-	existing.UpdatedAt = time.Now()
-	if err := s.fileRepo.Update(ctx, existing); err != nil {
-		return nil, fmt.Errorf("failed to update metadata: %w", err)
-	}
-
 	return &api.UpdateMetadataResponse{
-		Metadata: convertToProto(existing),
+		Metadata: convertToProto(out.File),
 	}, nil
 }
 
 func (s *Server) DeleteMetadata(ctx context.Context, req *api.DeleteMetadataRequest) (*api.DeleteMetadataResponse, error) {
-	if err := s.fileRepo.Delete(ctx, req.Id, req.UserId); err != nil {
-		return nil, fmt.Errorf("failed to delete metadata: %w", err)
+	out, err := s.service.DeleteMetadata(ctx, &DeleteMetadataInput{
+		FileID: req.Id,
+		UserID: req.UserId,
+	})
+	if err != nil {
+		return nil, err
 	}
-	return &api.DeleteMetadataResponse{Success: true}, nil
+	return &api.DeleteMetadataResponse{Success: out.Success}, nil
 }
 
 func (s *Server) CheckAccess(ctx context.Context, req *api.CheckAccessRequest) (*api.CheckAccessResponse, error) {
-	hasAccess, storagePath, bucket, err := s.fileRepo.CheckAccess(ctx, req.FileId, req.UserId)
+	out, err := s.service.CheckAccess(ctx, &CheckAccessInput{
+		FileID: req.FileId,
+		UserID: req.UserId,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to check access: %w", err)
+		return nil, err
 	}
-
 	return &api.CheckAccessResponse{
-		HasAccess:   hasAccess,
-		StoragePath: storagePath,
-		Bucket:      bucket,
+		HasAccess:   out.HasAccess,
+		StoragePath: out.StoragePath,
+		Bucket:      out.Bucket,
 	}, nil
 }
 

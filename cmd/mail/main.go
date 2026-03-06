@@ -17,9 +17,15 @@ import (
 func main() {
 	config := configs.LoadConfig()
 
+	mailSvc, err := mail.NewMailService(config)
+	if err != nil {
+		log.Fatalf("Failed to create mail service: %v", err)
+	}
+
 	grpcServer := grpc.NewServer()
-	mailServer := mail.NewServer(config)
+	mailServer := mail.NewServer(mailSvc)
 	api.RegisterMailServiceServer(grpcServer, mailServer)
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", "50054"))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)

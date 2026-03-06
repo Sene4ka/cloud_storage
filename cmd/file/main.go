@@ -34,13 +34,15 @@ func main() {
 	defer dbpool.Close()
 
 	fileRepo := repositories.NewFileRepository(dbpool)
-	grpcServer := grpc.NewServer()
-	fileServer, err := file.NewServer(fileRepo, config)
+	fileSvc, err := file.NewFileService(fileRepo, config)
 	if err != nil {
-		log.Fatalf("Failed to create file server: %v", err)
+		log.Fatalf("Failed to create file service: %v", err)
 	}
 
+	grpcServer := grpc.NewServer()
+	fileServer := file.NewServer(fileSvc)
 	api.RegisterFileServiceServer(grpcServer, fileServer)
+
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", "50053"))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
