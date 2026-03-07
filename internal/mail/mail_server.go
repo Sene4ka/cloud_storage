@@ -6,6 +6,10 @@ import (
 	"github.com/Sene4ka/cloud_storage/internal/api"
 )
 
+type MailService interface {
+	Send2FACode(ctx context.Context, input *Send2FACodeInput) (*Send2FACodeOutput, error)
+}
+
 type Server struct {
 	api.UnimplementedMailServiceServer
 	service MailService

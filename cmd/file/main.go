@@ -34,7 +34,7 @@ func main() {
 	defer dbpool.Close()
 
 	fileRepo := repositories.NewFileRepository(dbpool)
-	fileSvc, err := file.NewFileService(fileRepo, config)
+	fileSvc, err := file.NewFileServiceWithMinio(fileRepo, config)
 	if err != nil {
 		log.Fatalf("Failed to create file service: %v", err)
 	}

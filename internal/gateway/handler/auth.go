@@ -1,18 +1,27 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/Sene4ka/cloud_storage/internal/api"
+	"google.golang.org/grpc"
 )
 
-type AuthHandler struct {
-	authClient api.AuthServiceClient
+type AuthClient interface {
+	Register(ctx context.Context, in *api.RegisterRequest, opts ...grpc.CallOption) (*api.RegisterResponse, error)
+	Login(ctx context.Context, in *api.LoginRequest, opts ...grpc.CallOption) (*api.LoginResponse, error)
+	Refresh(ctx context.Context, in *api.RefreshRequest, opts ...grpc.CallOption) (*api.RefreshResponse, error)
+	Logout(ctx context.Context, in *api.LogoutRequest, opts ...grpc.CallOption) (*api.LogoutResponse, error)
 }
 
-func NewAuthHandler(client api.AuthServiceClient) *AuthHandler {
+type AuthHandler struct {
+	authClient AuthClient
+}
+
+func NewAuthHandler(client AuthClient) *AuthHandler {
 	return &AuthHandler{authClient: client}
 }
 

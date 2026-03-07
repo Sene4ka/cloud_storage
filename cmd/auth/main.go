@@ -42,7 +42,7 @@ func main() {
 	defer redisClient.Close()
 
 	userRepo := repositories.NewUserRepository(dbpool)
-	authService := auth.NewAuthService(userRepo, redisClient, config)
+	authService := auth.NewAuthServiceRedis(userRepo, redisClient, config)
 
 	grpcServer := grpc.NewServer()
 	authServer := auth.NewServer(authService)

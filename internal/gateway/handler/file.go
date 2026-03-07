@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,15 +9,31 @@ import (
 	"strings"
 
 	"github.com/Sene4ka/cloud_storage/internal/api"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-type FileHandler struct {
-	metadataClient api.MetadataServiceClient
-	fileClient     api.FileServiceClient
+type MetadataClient interface {
+	GetMetadata(ctx context.Context, in *api.GetMetadataRequest, opts ...grpc.CallOption) (*api.GetMetadataResponse, error)
+	ListMetadata(ctx context.Context, in *api.ListMetadataRequest, opts ...grpc.CallOption) (*api.ListMetadataResponse, error)
+	UpdateMetadata(ctx context.Context, in *api.UpdateMetadataRequest, opts ...grpc.CallOption) (*api.UpdateMetadataResponse, error)
+	TrashFile(ctx context.Context, in *api.TrashFileRequest, opts ...grpc.CallOption) (*api.TrashFileResponse, error)
+	RestoreFile(ctx context.Context, in *api.RestoreFileRequest, opts ...grpc.CallOption) (*api.RestoreFileResponse, error)
 }
 
-func NewFileHandler(metadataClient api.MetadataServiceClient, fileClient api.FileServiceClient) *FileHandler {
+type FileClient interface {
+	InitiateUpload(ctx context.Context, in *api.InitiateUploadRequest, opts ...grpc.CallOption) (*api.InitiateUploadResponse, error)
+	CompleteUpload(ctx context.Context, in *api.CompleteUploadRequest, opts ...grpc.CallOption) (*api.CompleteUploadResponse, error)
+	GetDownloadLink(ctx context.Context, in *api.GetDownloadLinkRequest, opts ...grpc.CallOption) (*api.GetDownloadLinkResponse, error)
+	DeleteFile(ctx context.Context, in *api.DeleteFileRequest, opts ...grpc.CallOption) (*api.DeleteFileResponse, error)
+}
+
+type FileHandler struct {
+	metadataClient MetadataClient
+	fileClient     FileClient
+}
+
+func NewFileHandler(metadataClient MetadataClient, fileClient FileClient) *FileHandler {
 	return &FileHandler{metadataClient: metadataClient, fileClient: fileClient}
 }
 

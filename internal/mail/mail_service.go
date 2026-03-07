@@ -9,25 +9,30 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-type MailService interface {
-	Send2FACode(ctx context.Context, input *Send2FACodeInput) (*Send2FACodeOutput, error)
+type SMTPSender interface {
+	Send(msg *gomail.Message) error
 }
 
 type mailService struct {
-	config *configs.Config
-	dialer *gomail.Dialer
+	config     *configs.Config
+	smtpSender SMTPSender
 }
 
-func NewMailService(config *configs.Config) (*mailService, error) {
+func NewMailService(config *configs.Config, smtpSender SMTPSender) *mailService {
+	return &mailService{
+		config:     config,
+		smtpSender: smtpSender,
+	}
+}
+
+func NewMailServiceWithDialer(config *configs.Config) (*mailService, error) {
 	port, err := strconv.Atoi(config.SMTP.Port)
 	if err != nil {
 		return nil, fmt.Errorf("invalid SMTP port: %w", err)
 	}
 	dialer := gomail.NewDialer(config.SMTP.Host, port, config.SMTP.EmailAddress, config.SMTP.Password)
-	return &mailService{
-		config: config,
-		dialer: dialer,
-	}, nil
+	smtpSender := NewGomailAdapter(dialer)
+	return NewMailService(config, smtpSender), nil
 }
 
 func (s *mailService) Send2FACode(ctx context.Context, input *Send2FACodeInput) (*Send2FACodeOutput, error) {
@@ -53,7 +58,7 @@ func (s *mailService) Send2FACode(ctx context.Context, input *Send2FACodeInput) 
 	m.SetBody("text/html", htmlBody)
 	m.SetBody("text/plain", fmt.Sprintf("Ваш код 2FA: %s (действителен 5 минут)", input.Code))
 
-	if err := s.dialer.DialAndSend(m); err != nil {
+	if err := s.smtpSender.Send(m); err != nil {
 		return &Send2FACodeOutput{
 			Success: false,
 			Message: fmt.Sprintf("SMTP Error: %v", err),

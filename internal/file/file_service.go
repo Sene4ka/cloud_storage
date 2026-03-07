@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/Sene4ka/cloud_storage/configs"
@@ -19,14 +20,35 @@ type FileRepository interface {
 	CheckAccess(ctx context.Context, fileID, userID string) (bool, string, string, error)
 }
 
+type BlobStorage interface {
+	BucketExists(ctx context.Context, bucketName string) (bool, error)
+	MakeBucket(ctx context.Context, bucketName string, opts minio.MakeBucketOptions) error
+	StatObject(ctx context.Context, bucketName, objectName string, opts minio.StatObjectOptions) (minio.ObjectInfo, error)
+	RemoveObject(ctx context.Context, bucketName, objectName string, opts minio.RemoveObjectOptions) error
+}
+
+type PresignedURLGenerator interface {
+	PresignedPutObject(ctx context.Context, bucketName, objectName string, expires time.Duration) (*url.URL, error)
+	PresignedGetObject(ctx context.Context, bucketName, objectName string, expires time.Duration, reqParams url.Values) (*url.URL, error)
+}
+
 type fileService struct {
 	fileRepo        FileRepository
-	minioClient     *minio.Client
-	presignedClient *minio.Client
+	storage         BlobStorage
+	presignedClient PresignedURLGenerator
 	config          *configs.Config
 }
 
-func NewFileService(fileRepo FileRepository, config *configs.Config) (*fileService, error) {
+func NewFileService(fileRepo FileRepository, storage BlobStorage, presignedClient PresignedURLGenerator, config *configs.Config) *fileService {
+	return &fileService{
+		fileRepo:        fileRepo,
+		storage:         storage,
+		presignedClient: presignedClient,
+		config:          config,
+	}
+}
+
+func NewFileServiceWithMinio(fileRepo FileRepository, config *configs.Config) (*fileService, error) {
 	minioClient, err := minio.New(config.MinIO.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(config.MinIO.AccessKeyID, config.MinIO.SecretAccessKey, ""),
 		Secure: config.MinIO.UseSSL,
@@ -59,12 +81,10 @@ func NewFileService(fileRepo FileRepository, config *configs.Config) (*fileServi
 		return nil, fmt.Errorf("failed to create presigned minio client: %w", err)
 	}
 
-	return &fileService{
-		fileRepo:        fileRepo,
-		minioClient:     minioClient,
-		presignedClient: presignedClient,
-		config:          config,
-	}, nil
+	storage := NewMinIOAdapter(minioClient)
+	presigned := NewMinIOAdapter(presignedClient)
+
+	return NewFileService(fileRepo, storage, presigned, config), nil
 }
 
 func (s *fileService) InitiateUpload(ctx context.Context, input *InitiateUploadInput) (*InitiateUploadOutput, error) {
@@ -113,7 +133,7 @@ func (s *fileService) CompleteUpload(ctx context.Context, input *CompleteUploadI
 	if file.UserID != input.UserID {
 		return nil, fmt.Errorf("access denied")
 	}
-	_, err = s.minioClient.StatObject(ctx, s.config.MinIO.BucketName, file.StoragePath, minio.StatObjectOptions{})
+	_, err = s.storage.StatObject(ctx, s.config.MinIO.BucketName, file.StoragePath, minio.StatObjectOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("file not found in storage: %w", err)
 	}
@@ -155,7 +175,7 @@ func (s *fileService) DeleteFile(ctx context.Context, input *DeleteFileInput) (*
 	if file.UserID != input.UserID {
 		return nil, fmt.Errorf("access denied")
 	}
-	err = s.minioClient.RemoveObject(ctx, file.Bucket, file.StoragePath, minio.RemoveObjectOptions{})
+	err = s.storage.RemoveObject(ctx, file.Bucket, file.StoragePath, minio.RemoveObjectOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete from storage: %w", err)
 	}

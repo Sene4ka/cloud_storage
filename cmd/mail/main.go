@@ -17,7 +17,7 @@ import (
 func main() {
 	config := configs.LoadConfig()
 
-	mailSvc, err := mail.NewMailService(config)
+	mailSvc, err := mail.NewMailServiceWithDialer(config)
 	if err != nil {
 		log.Fatalf("Failed to create mail service: %v", err)
 	}

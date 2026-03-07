@@ -117,10 +117,3 @@ func (s *metadataService) RestoreFile(ctx context.Context, input *RestoreFileInp
 	}
 	return &RestoreFileOutput{Success: true}, nil
 }
-
-func (s *metadataService) DeleteFileMetadata(ctx context.Context, input *DeleteFileMetadataInput) (*DeleteFileMetadataOutput, error) {
-	if err := s.fileRepo.Delete(ctx, input.FileID, input.UserID); err != nil {
-		return nil, fmt.Errorf("failed to delete file metadata: %w", err)
-	}
-	return &DeleteFileMetadataOutput{Success: true}, nil
-}

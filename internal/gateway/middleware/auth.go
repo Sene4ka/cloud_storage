@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Sene4ka/cloud_storage/internal/api"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -14,7 +15,11 @@ const (
 	TokenKey  = "token"
 )
 
-func WithAuth(next http.HandlerFunc, authClient api.AuthServiceClient) http.HandlerFunc {
+type TokenValidator interface {
+	ValidateToken(ctx context.Context, in *api.ValidateTokenRequest, opts ...grpc.CallOption) (*api.ValidateTokenResponse, error)
+}
+
+func WithAuth(next http.HandlerFunc, authClient TokenValidator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
