@@ -92,6 +92,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL}
+      MAIL_SERVICE_ADDR: ${MAIL_SERVICE_ADDR}
     ports:
       - "50051:50051"
     depends_on:
@@ -162,9 +163,11 @@ services:
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_EMAIL_ADDRESS: ${SMTP_EMAIL_ADDRESS}
+      SMTP_USERNAME: ${SMTP_USERNAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
     ports:
       - "50054:50054"
+      - "587:587"
     networks:
       - cloud_storage_network
 

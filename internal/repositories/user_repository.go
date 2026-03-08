@@ -106,3 +106,32 @@ func (r *userRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 
 	return exists, nil
 }
+
+func (r *userRepository) Update(ctx context.Context, user *models.User) error {
+	query := `
+		UPDATE users
+		SET email = $1,
+		    password_hash = $2,
+		    name = $3,
+		    is_verified = $4,
+		    is_2fa_enabled = $5,
+		    updated_at = $6
+		WHERE id = $7
+	`
+
+	_, err := r.db.Exec(ctx, query,
+		user.Email,
+		user.PasswordHash,
+		user.Name,
+		user.IsVerified,
+		user.Is2FAEnabled,
+		user.UpdatedAt,
+		user.ID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return nil
+}

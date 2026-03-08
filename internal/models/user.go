@@ -12,6 +12,8 @@ type User struct {
 	Email        string    `db:"email" json:"email"`
 	PasswordHash string    `db:"password_hash" json:"-"`
 	Name         string    `db:"name" json:"name"`
+	IsVerified   bool      `db:"is_verified" json:"is_verified"`
+	Is2FAEnabled bool      `db:"is_2fa_enabled" json:"is_2fa_enabled"`
 	CreatedAt    time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
 }
@@ -28,6 +30,8 @@ func NewUser(email, password, name string) (*User, error) {
 		Email:        email,
 		PasswordHash: string(hashedPassword),
 		Name:         name,
+		IsVerified:   false,
+		Is2FAEnabled: false,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}, nil

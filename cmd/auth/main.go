@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -42,7 +43,16 @@ func main() {
 	defer redisClient.Close()
 
 	userRepo := repositories.NewUserRepository(dbpool)
-	authService := auth.NewAuthServiceRedis(userRepo, redisClient, config)
+
+	mailCC, err := grpc.NewClient(config.Services.MailAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("mail conn: %w", err)
+	}
+
+	mailConn := grpc.ClientConnInterface(mailCC)
+	mailClient := api.NewMailServiceClient(mailConn)
+
+	authService := auth.NewAuthServiceRedis(userRepo, redisClient, mailClient, config)
 
 	grpcServer := grpc.NewServer()
 	authServer := auth.NewServer(authService)

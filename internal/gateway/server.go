@@ -50,10 +50,24 @@ func NewServer(config *configs.Config) (*Server, error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", server.handleHealth)
+
 	mux.HandleFunc("/api/v1/auth/register", server.authHandler.HandleRegister)
+	mux.HandleFunc("/api/v1/auth/register/complete", server.authHandler.HandleRegisterComplete)
 	mux.HandleFunc("/api/v1/auth/login", server.authHandler.HandleLogin)
+	mux.HandleFunc("/api/v1/auth/login/complete", server.authHandler.HandleLoginComplete)
 	mux.HandleFunc("/api/v1/auth/refresh", server.authHandler.HandleRefresh)
+
 	mux.HandleFunc("/api/v1/auth/logout", middleware.WithAuth(server.authHandler.HandleLogout, authClient))
+	mux.HandleFunc("/api/v1/auth/2fa/enable", middleware.WithAuth(server.authHandler.HandleEnable2FA, authClient))
+	mux.HandleFunc("/api/v1/auth/2fa/enable/complete", middleware.WithAuth(server.authHandler.HandleEnable2FAComplete, authClient))
+	mux.HandleFunc("/api/v1/auth/2fa/disable", middleware.WithAuth(server.authHandler.HandleDisable2FA, authClient))
+	mux.HandleFunc("/api/v1/auth/2fa/disable/complete", middleware.WithAuth(server.authHandler.HandleDisable2FAComplete, authClient))
+	mux.HandleFunc("/api/v1/auth/email/change", middleware.WithAuth(server.authHandler.HandleChangeEmail, authClient))
+	mux.HandleFunc("/api/v1/auth/email/change/complete", middleware.WithAuth(server.authHandler.HandleChangeEmailComplete, authClient))
+	mux.HandleFunc("/api/v1/auth/password/change", middleware.WithAuth(server.authHandler.HandleChangePassword, authClient))
+	mux.HandleFunc("/api/v1/auth/password/change/complete", middleware.WithAuth(server.authHandler.HandleChangePasswordComplete, authClient))
+	mux.HandleFunc("/api/v1/auth/meta/change", middleware.WithAuth(server.authHandler.HandleChangeMeta, authClient))
+
 	mux.HandleFunc("/api/v1/files", middleware.WithAuth(server.fileHandler.HandleFiles, authClient))
 	mux.HandleFunc("/api/v1/files/", middleware.WithAuth(server.fileHandler.HandleFileDetail, authClient))
 	mux.HandleFunc("/api/v1/files/upload", middleware.WithAuth(server.fileHandler.HandleInitiateUpload, authClient))

@@ -59,6 +59,7 @@ type SMTPConfig struct {
 	Host         string
 	Port         string
 	EmailAddress string
+	Username     string
 	Password     string
 }
 
@@ -66,6 +67,7 @@ type ServicesConfig struct {
 	AuthAddr     string
 	MetadataAddr string
 	FileAddr     string
+	MailAddr     string
 }
 
 func LoadConfig() *Config {
@@ -108,12 +110,14 @@ func LoadConfig() *Config {
 			Host:         getEnv("SMTP_HOST", "smtp.yandex.ru"),
 			Port:         getEnv("SMTP_PORT", "587"),
 			EmailAddress: getEnv("SMTP_EMAIL_ADDRESS", "your.email.address@yandex.ru"),
-			Password:     getEnv("SMTP_PASSWORD", "your-secret-key-change-in-production"),
+			Username:     getEnv("SMTP_USERNAME", "your-smtp-username-change-in-production"),
+			Password:     getEnv("SMTP_PASSWORD", "your-smtp-password-key-change-in-production"),
 		},
 		Services: ServicesConfig{
 			AuthAddr:     getEnv("AUTH_SERVICE_ADDR", "localhost:50051"),
 			MetadataAddr: getEnv("METADATA_SERVICE_ADDR", "localhost:50052"),
 			FileAddr:     getEnv("FILE_SERVICE_ADDR", "localhost:50053"),
+			MailAddr:     getEnv("MAIL_SERVICE_ADDR", "localhost:50054"),
 		},
 	}
 }

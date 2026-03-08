@@ -30,7 +30,7 @@ func NewMailServiceWithDialer(config *configs.Config) (*mailService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid SMTP port: %w", err)
 	}
-	dialer := gomail.NewDialer(config.SMTP.Host, port, config.SMTP.EmailAddress, config.SMTP.Password)
+	dialer := gomail.NewDialer(config.SMTP.Host, port, config.SMTP.Username, config.SMTP.Password)
 	smtpSender := NewGomailAdapter(dialer)
 	return NewMailService(config, smtpSender), nil
 }

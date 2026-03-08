@@ -1,0 +1,3 @@
+ALTER TABLE users
+DROP COLUMN IF EXISTS is_verified,
+DROP COLUMN IF EXISTS is_2fa_enabled;
