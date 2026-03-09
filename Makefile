@@ -18,6 +18,9 @@ proto:
 	@protoc --go_out=. --go_opt=paths=source_relative \
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		internal/api/file.proto
+	@protoc --go_out=. --go_opt=paths=source_relative \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		internal/api/mail.proto
 	@echo "Protobuf files generated."
 
 # Build project
@@ -26,20 +29,18 @@ build: proto
 	@go build -o bin/auth-service ./cmd/auth
 	@go build -o bin/metadata-service ./cmd/metadata
 	@go build -o bin/file-service ./cmd/file
+	@go build -o bin/mail-service ./cmd/mail
 	@go build -o bin/gateway ./cmd/gateway
 	@echo "Build complete."
 
 # Build Docker images
 docker-build: build
 	@echo "Building Docker images..."
-	@docker build -f deployments/docker/Dockerfile.auth -t cloud-storage/auth-service:latest .
-	@docker build -f deployments/docker/Dockerfile.metadata -t cloud-storage/metadata-service:latest .
-	@docker build -f deployments/docker/Dockerfile.file -t cloud-storage/file-service:latest .
-	@docker build -f deployments/docker/Dockerfile.gateway -t cloud-storage/gateway:latest .
+	@$(DOCKER_COMPOSE) build
 	@echo "Docker images built."
 
 # Start services with Docker Compose
-docker-up:
+docker-up: docker-build
 	@echo "Starting services with Docker Compose..."
 	@$(DOCKER_COMPOSE) up -d
 

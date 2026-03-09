@@ -4,14 +4,15 @@ package metadata;
 option go_package = "github.com/Sene4ka/cloud_storage/internal/api";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 
 service MetadataService {
-  rpc CreateMetadata(CreateMetadataRequest) returns (CreateMetadataResponse);
   rpc GetMetadata(GetMetadataRequest) returns (GetMetadataResponse);
   rpc ListMetadata(ListMetadataRequest) returns (ListMetadataResponse);
   rpc UpdateMetadata(UpdateMetadataRequest) returns (UpdateMetadataResponse);
-  rpc DeleteMetadata(DeleteMetadataRequest) returns (DeleteMetadataResponse);
   rpc CheckAccess(CheckAccessRequest) returns (CheckAccessResponse);
+  rpc TrashFile(TrashFileRequest) returns (TrashFileResponse);
+  rpc RestoreFile(RestoreFileRequest) returns (RestoreFileResponse);
 }
 
 message FileMetadata {
@@ -19,14 +20,17 @@ message FileMetadata {
   string user_id = 2;
   string filename = 3;
   string original_name = 4;
-  int64 size = 5;
-  string mime_type = 6;
-  string storage_path = 7;
-  string bucket = 8;
-  google.protobuf.Timestamp created_at = 9;
-  google.protobuf.Timestamp updated_at = 10;
-  bool is_public = 11;
-  map<string, string> tags = 12;
+  string path = 5;
+  int64 size = 6;
+  string mime_type = 7;
+  string storage_path = 8;
+  string bucket = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  bool is_public = 12;
+  map<string, string> tags = 13;
+  bool is_trashed = 14;
+  google.protobuf.Timestamp trashed_at = 15;
 }
 
 message CreateMetadataRequest {
@@ -61,6 +65,7 @@ message ListMetadataRequest {
   string sort_by = 4;
   string sort_order = 5;
   string search = 6;
+  google.protobuf.BoolValue is_trashed = 7;
 }
 
 message ListMetadataResponse {
@@ -75,21 +80,13 @@ message UpdateMetadataRequest {
   string user_id = 2;
   string filename = 3;
   string original_name = 4;
-  bool is_public = 5;
-  map<string, string> tags = 6;
+  string path = 5;
+  bool is_public = 6;
+  map<string, string> tags = 7;
 }
 
 message UpdateMetadataResponse {
   FileMetadata metadata = 1;
-}
-
-message DeleteMetadataRequest {
-  string id = 1;
-  string user_id = 2;
-}
-
-message DeleteMetadataResponse {
-  bool success = 1;
 }
 
 message CheckAccessRequest {
@@ -101,4 +98,22 @@ message CheckAccessResponse {
   bool has_access = 1;
   string storage_path = 2;
   string bucket = 3;
+}
+
+message TrashFileRequest {
+  string file_id = 1;
+  string user_id = 2;
+}
+
+message TrashFileResponse {
+  bool success = 1;
+}
+
+message RestoreFileRequest {
+  string file_id = 1;
+  string user_id = 2;
+}
+
+message RestoreFileResponse {
+  bool success = 1;
 }

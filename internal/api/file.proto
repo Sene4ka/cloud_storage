@@ -10,16 +10,16 @@ service FileService {
   rpc CompleteUpload(CompleteUploadRequest) returns (CompleteUploadResponse);
   rpc GetDownloadLink(GetDownloadLinkRequest) returns (GetDownloadLinkResponse);
   rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
-  rpc GetFileInfo(GetFileInfoRequest) returns (GetFileInfoResponse);
 }
 
 message InitiateUploadRequest {
   string user_id = 1;
   string filename = 2;
-  int64 size = 3;
-  string mime_type = 4;
-  bool is_public = 5;
-  map<string, string> tags = 6;
+  string path = 3;
+  int64 size = 4;
+  string mime_type = 5;
+  bool is_public = 6;
+  map<string, string> tags = 7;
 }
 
 message InitiateUploadResponse {
@@ -63,24 +63,4 @@ message DeleteFileRequest {
 
 message DeleteFileResponse {
   bool success = 1;
-}
-
-message GetFileInfoRequest {
-  string file_id = 1;
-  string user_id = 2;
-}
-
-message GetFileInfoResponse {
-  string id = 1;
-  string user_id = 2;
-  string filename = 3;
-  string original_name = 4;
-  int64 size = 5;
-  string mime_type = 6;
-  string storage_path = 7;
-  string bucket = 8;
-  google.protobuf.Timestamp created_at = 9;
-  google.protobuf.Timestamp updated_at = 10;
-  bool is_public = 11;
-  map<string, string> tags = 12;
 }

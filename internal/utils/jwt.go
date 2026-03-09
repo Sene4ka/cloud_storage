@@ -114,3 +114,37 @@ func (j *JWTManager) ValidateRefreshToken(tokenString string) (*TokenClaims, err
 
 	return claims, nil
 }
+
+func (j *JWTManager) GenerateTempToken(userID, email string) (string, error) {
+	claims := TokenClaims{
+		UserID: userID,
+		Email:  email,
+		Type:   "temp",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        uuid.New().String(),
+		},
+	}
+
+	tokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token, err := tokenObj.SignedString(j.secret)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign temp token: %w", err)
+	}
+
+	return token, nil
+}
+
+func (j *JWTManager) ValidateTempToken(tokenString string) (*TokenClaims, error) {
+	claims, err := j.ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+
+	if claims.Type != "temp" {
+		return nil, fmt.Errorf("invalid token type: expected temp")
+	}
+
+	return claims, nil
+}

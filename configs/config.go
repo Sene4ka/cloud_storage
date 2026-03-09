@@ -13,6 +13,8 @@ type Config struct {
 	MinIO    MinIOConfig
 	JWT      JWTConfig
 	Services ServicesConfig
+	SMTP     SMTPConfig
+	Metrics  MetricsConfig
 }
 
 type ServerConfig struct {
@@ -54,10 +56,23 @@ type JWTConfig struct {
 	RefreshTokenTTL time.Duration
 }
 
+type SMTPConfig struct {
+	Host         string
+	Port         string
+	EmailAddress string
+	Username     string
+	Password     string
+}
+
 type ServicesConfig struct {
 	AuthAddr     string
 	MetadataAddr string
 	FileAddr     string
+	MailAddr     string
+}
+
+type MetricsConfig struct {
+	Port string
 }
 
 func LoadConfig() *Config {
@@ -69,7 +84,7 @@ func LoadConfig() *Config {
 			WriteTimeout: getDurationEnv("SERVER_WRITE_TIMEOUT", 10*time.Second),
 		},
 		Database: DatabaseConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
+			Host:     getEnv("DB_HOST", "postgres"),
 			Port:     getEnv("DB_PORT", "5432"),
 			User:     getEnv("DB_USER", "postgres"),
 			Password: getEnv("DB_PASSWORD", "postgres"),
@@ -77,13 +92,13 @@ func LoadConfig() *Config {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		Redis: RedisConfig{
-			Host:     getEnv("REDIS_HOST", "localhost"),
+			Host:     getEnv("REDIS_HOST", "redis"),
 			Port:     getEnv("REDIS_PORT", "6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getIntEnv("REDIS_DB", 0),
 		},
 		MinIO: MinIOConfig{
-			Endpoint:        getEnv("MINIO_ENDPOINT", "localhost:9000"),
+			Endpoint:        getEnv("MINIO_ENDPOINT", "minio:9000"),
 			PublicEndpoint:  getEnv("MINIO_PUBLIC_ENDPOINT", "localhost:9000"),
 			AccessKeyID:     getEnv("MINIO_ACCESS_KEY", "minioadmin"),
 			SecretAccessKey: getEnv("MINIO_SECRET_KEY", "minioadmin"),
@@ -96,10 +111,21 @@ func LoadConfig() *Config {
 			AccessTokenTTL:  getDurationEnv("JWT_ACCESS_TTL", 15*time.Minute),
 			RefreshTokenTTL: getDurationEnv("JWT_REFRESH_TTL", 7*24*time.Hour),
 		},
+		SMTP: SMTPConfig{
+			Host:         getEnv("SMTP_HOST", "smtp.yandex.ru"),
+			Port:         getEnv("SMTP_PORT", "587"),
+			EmailAddress: getEnv("SMTP_EMAIL_ADDRESS", "your.email.address@yandex.ru"),
+			Username:     getEnv("SMTP_USERNAME", "your-smtp-username-change-in-production"),
+			Password:     getEnv("SMTP_PASSWORD", "your-smtp-password-key-change-in-production"),
+		},
 		Services: ServicesConfig{
 			AuthAddr:     getEnv("AUTH_SERVICE_ADDR", "localhost:50051"),
 			MetadataAddr: getEnv("METADATA_SERVICE_ADDR", "localhost:50052"),
 			FileAddr:     getEnv("FILE_SERVICE_ADDR", "localhost:50053"),
+			MailAddr:     getEnv("MAIL_SERVICE_ADDR", "localhost:50054"),
+		},
+		Metrics: MetricsConfig{
+			Port: getEnv("METRICS_PORT", "9002"),
 		},
 	}
 }

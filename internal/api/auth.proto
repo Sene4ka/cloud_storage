@@ -5,10 +5,21 @@ option go_package = "github.com/Sene4ka/cloud_storage/internal/api";
 
 service AuthService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc RegisterComplete(RegisterCompleteRequest) returns (RegisterCompleteResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
+  rpc LoginComplete(LoginCompleteRequest) returns (LoginCompleteResponse);
   rpc Refresh(RefreshRequest) returns (RefreshResponse);
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc Enable2FA(Enable2FARequest) returns (Enable2FAResponse);
+  rpc Enable2FAComplete(Enable2FACompleteRequest) returns (Enable2FACompleteResponse);
+  rpc Disable2FA(Disable2FARequest) returns (Disable2FAResponse);
+  rpc Disable2FAComplete(Disable2FACompleteRequest) returns (Disable2FACompleteResponse);
+  rpc ChangeEmail(ChangeEmailRequest) returns (ChangeEmailResponse);
+  rpc ChangeEmailComplete(ChangeEmailCompleteRequest) returns (ChangeEmailCompleteResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc ChangePasswordComplete(ChangePasswordCompleteRequest) returns (ChangePasswordCompleteResponse);
+  rpc ChangeMeta(ChangeMetaRequest) returns (ChangeMetaResponse);
 }
 
 message RegisterRequest {
@@ -18,6 +29,18 @@ message RegisterRequest {
 }
 
 message RegisterResponse {
+  string user_id = 1;
+  string email = 2;
+  string name = 3;
+  string message = 4;
+}
+
+message RegisterCompleteRequest {
+  string user_id = 1;
+  string code = 2;
+}
+
+message RegisterCompleteResponse {
   string user_id = 1;
   string email = 2;
   string name = 3;
@@ -33,6 +56,24 @@ message LoginRequest {
 }
 
 message LoginResponse {
+  string user_id = 1;
+  string email = 2;
+  string name = 3;
+  string access_token = 4;
+  int64 access_expires_in = 5;
+  string refresh_token = 6;
+  int64 refresh_expires_in = 7;
+  string temp_token = 8;
+  bool requires_2fa = 9;
+  string message = 10;
+}
+
+message LoginCompleteRequest {
+  string temp_token = 1;
+  string code = 2;
+}
+
+message LoginCompleteResponse {
   string user_id = 1;
   string email = 2;
   string name = 3;
@@ -70,4 +111,92 @@ message LogoutRequest {
 
 message LogoutResponse {
   bool success = 1;
+}
+
+message Enable2FARequest {
+  string user_id = 1;
+  string password = 2;
+}
+
+message Enable2FAResponse {
+  string message = 1;
+}
+
+message Enable2FACompleteRequest {
+  string user_id = 1;
+  string code = 2;
+}
+
+message Enable2FACompleteResponse {
+  bool is_2fa_enabled = 1;
+  string message = 2;
+}
+
+message Disable2FARequest {
+  string user_id = 1;
+  string password = 2;
+}
+
+message Disable2FAResponse {
+  string message = 1;
+}
+
+message Disable2FACompleteRequest {
+  string user_id = 1;
+  string code = 2;
+}
+
+message Disable2FACompleteResponse {
+  bool is_2fa_enabled = 1;
+  string message = 2;
+}
+
+message ChangeEmailRequest {
+  string user_id = 1;
+  string current_password = 2;
+  string new_email = 3;
+}
+
+message ChangeEmailResponse {
+  string message = 1;
+}
+
+message ChangeEmailCompleteRequest {
+  string user_id = 1;
+  string code = 2;
+}
+
+message ChangeEmailCompleteResponse {
+  string email = 1;
+  string message = 2;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string current_password = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordResponse {
+  string message = 1;
+}
+
+message ChangePasswordCompleteRequest {
+  string user_id = 1;
+  string code = 2;
+}
+
+message ChangePasswordCompleteResponse {
+  string message = 1;
+}
+
+message ChangeMetaRequest {
+  string user_id = 1;
+  string name = 2;
+}
+
+message ChangeMetaResponse {
+  string user_id = 1;
+  string name = 2;
+  string message = 3;
 }

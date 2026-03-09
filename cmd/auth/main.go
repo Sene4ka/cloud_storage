@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,14 +13,23 @@ import (
 	"github.com/Sene4ka/cloud_storage/configs"
 	"github.com/Sene4ka/cloud_storage/internal/api"
 	"github.com/Sene4ka/cloud_storage/internal/auth"
+	"github.com/Sene4ka/cloud_storage/internal/metrics"
 	"github.com/Sene4ka/cloud_storage/internal/repositories"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
 	config := configs.LoadConfig()
+
+	_, port, err := net.SplitHostPort(config.Services.AuthAddr)
+	if err != nil {
+		log.Fatalf("Invalid AuthAddr format: %s (expected host:port): %v", config.Services.AuthAddr, err)
+	}
+
 	dbpool, err := pgxpool.New(context.Background(), fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		config.Database.User,
@@ -42,13 +52,33 @@ func main() {
 	defer redisClient.Close()
 
 	userRepo := repositories.NewUserRepository(dbpool)
-	grpcServer := grpc.NewServer()
-	authServer := auth.NewServer(userRepo, redisClient, config)
+
+	mailCC, err := grpc.NewClient(config.Services.MailAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("mail conn: %s", err)
+	}
+
+	mailConn := grpc.ClientConnInterface(mailCC)
+	mailClient := api.NewMailServiceClient(mailConn)
+
+	authService := auth.NewAuthServiceRedis(userRepo, redisClient, mailClient, config)
+
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(metrics.UnaryServerInterceptor()))
+	authServer := auth.NewServer(authService)
 	api.RegisterAuthServiceServer(grpcServer, authServer)
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", "50051"))
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
+
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		log.Printf("Metrics server starting on port %s", config.Metrics.Port)
+		if err := http.ListenAndServe(fmt.Sprintf(":%s", config.Metrics.Port), nil); err != nil {
+			log.Fatalf("Failed to serve metrics: %v", err)
+		}
+	}()
 
 	go func() {
 		sigCh := make(chan os.Signal, 1)
@@ -58,7 +88,7 @@ func main() {
 		grpcServer.GracefulStop()
 	}()
 
-	log.Printf("Auth service starting on port %s", "50051")
+	log.Printf("Auth service starting on port %s", port)
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
