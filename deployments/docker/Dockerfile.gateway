@@ -15,9 +15,11 @@ FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+WORKDIR /app
 
 COPY --from=builder /app/gateway-service .
+
+COPY docs/swagger ./docs/swagger
 
 EXPOSE 8080
 

@@ -244,6 +244,8 @@ services:
       context: .
       dockerfile: deployments/docker/Dockerfile.gateway
     container_name: cloud_storage_gateway
+    volumes:
+    - ./docs/swagger:/app/docs/swagger:ro
     environment:
       SERVER_PORT: ${SERVER_PORT}
       SERVER_HOST: ${SERVER_HOST}

@@ -1,0 +1,1452 @@
+openapi: 3.0.3
+info:
+  title: Cloud Storage API
+  description: |
+    API для облачного хранилища файлов.
+    
+    ## Аутентификация
+    
+    Большинство эндпоинтов требуют JWT токен в заголовке:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+    
+    ## 2FA Flow
+    
+    Некоторые операции требуют двухэтапного подтверждения:
+    1. Первый запрос → получает код на email
+    2. Второй запрос с кодом → завершает операцию
+  version: 2.0.0
+
+tags:
+  - name: Auth
+    description: Аутентификация и управление аккаунтом
+  - name: Files
+    description: Управление файлами
+  - name: Health
+    description: Проверка статуса сервиса
+
+paths:
+  # === HEALTH ===
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Проверка здоровья сервиса
+      operationId: getHealth
+      responses:
+        '200':
+          description: Сервис здоров
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+
+  # === AUTH: Registration ===
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Регистрация (шаг 1)
+      description: |
+        Создаёт нового пользователя и отправляет код подтверждения на email.
+        
+        **Шаг 2:** Вызовите `/api/v1/auth/register/complete` с кодом из письма.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: password123
+                name:
+                  type: string
+                  example: John Doe
+      responses:
+        '201':
+          description: Код отправлен на email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Неверный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email уже занят
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/register/complete:
+    post:
+      tags:
+        - Auth
+      summary: Подтверждение регистрации (шаг 2)
+      description: |
+        Подтверждает email и выдаёт JWT токены.
+        
+        **Требует:** Код из письма после `/api/v1/auth/register`
+      operationId: registerComplete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - code
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                  example: 25b5b400-1768-4fff-ac00-2cc4e9228bd2
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: '739097'
+      responses:
+        '200':
+          description: Регистрация завершена, токены выданы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '400':
+          description: Неверный код
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: Код истёк (5 минут)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # === AUTH: Login ===
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Вход в аккаунт
+      description: |
+        Аутентификация по email и паролю.
+        
+        **Возможные сценарии:**
+        - `requires_2fa: false` → токены выданы сразу
+        - `requires_2fa: true` → нужен второй шаг с кодом из email
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LoginDirectResponse'
+                  - $ref: '#/components/schemas/Login2FAResponse'
+        '401':
+          description: Неверные учётные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/login/complete:
+    post:
+      tags:
+        - Auth
+      summary: Завершение входа с 2FA (шаг 2)
+      description: |
+        Ввод кода 2FA после `/api/v1/auth/login` с `requires_2fa: true`.
+        
+        Также используется для подтверждения email при первом входе.
+      operationId: loginComplete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - temp_token
+                - code
+              properties:
+                temp_token:
+                  type: string
+                  description: Временный токен из ответа /login
+                  example: eyJhbGciOiJIUzI1NiIs...
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: '739097'
+      responses:
+        '200':
+          description: Вход завершён, токены выданы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '400':
+          description: Неверный код
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Неверный temp_token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: Код или токен истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # === AUTH: Token ===
+  /api/v1/auth/refresh:
+    post:
+      tags:
+        - Auth
+      summary: Обновление токенов
+      description: |
+        Получает новую пару access/refresh токенов по текущему refresh токену.
+        
+        **Важно:** Старый refresh токен аннулируется.
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIs...
+      responses:
+        '200':
+          description: Токены обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '401':
+          description: Неверный или истёкший refresh токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Выход из аккаунта
+      description: |
+        Аннулирует refresh токен (добавляет в blacklist).
+        
+        **Требует:** Access токен в заголовке Authorization
+      operationId: logout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIs...
+      responses:
+        '200':
+          description: Успешный выход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # === AUTH: 2FA ===
+  /api/v1/auth/2fa/enable:
+    post:
+      tags:
+        - Auth
+      summary: Включение 2FA (шаг 1)
+      description: |
+        Инициирует включение двухфакторной аутентификации.
+        
+        **Требует:** Access токен + пароль
+        
+        **Шаг 2:** Вызовите `/api/v1/auth/2fa/enable/complete` с кодом из письма.
+      operationId: enable2FA
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Код отправлен на email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Enable2FAResponse'
+        '401':
+          description: Неавторизован или неверный пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/2fa/enable/complete:
+    post:
+      tags:
+        - Auth
+      summary: Включение 2FA (шаг 2)
+      description: |
+        Завершает включение двухфакторной аутентификации.
+        
+        **Требует:** Access токен + код из письма
+      operationId: enable2FAComplete
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: '739097'
+      responses:
+        '200':
+          description: 2FA включён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Enable2FACompleteResponse'
+        '400':
+          description: Неверный код
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/2fa/disable:
+    post:
+      tags:
+        - Auth
+      summary: Отключение 2FA (шаг 1)
+      description: |
+        Инициирует отключение двухфакторной аутентификации.
+        
+        **Требует:** Access токен + пароль
+        
+        **Шаг 2:** Вызовите `/api/v1/auth/2fa/disable/complete` с кодом из письма.
+      operationId: disable2FA
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Код отправлен на email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Disable2FAResponse'
+        '401':
+          description: Неавторизован или неверный пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/2fa/disable/complete:
+    post:
+      tags:
+        - Auth
+      summary: Отключение 2FA (шаг 2)
+      description: |
+        Завершает отключение двухфакторной аутентификации.
+        
+        **Требует:** Access токен + код из письма
+      operationId: disable2FAComplete
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: '739097'
+      responses:
+        '200':
+          description: 2FA отключён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Disable2FACompleteResponse'
+        '400':
+          description: Неверный код
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # === AUTH: Change Email ===
+  /api/v1/auth/email/change:
+    post:
+      tags:
+        - Auth
+      summary: Смена email (шаг 1)
+      description: |
+        Инициирует смену email адреса.
+        
+        **Требует:** Access токен + текущий пароль + новый email
+        
+        **Шаг 2:** Вызовите `/api/v1/auth/email/change/complete` с кодом на НОВЫЙ email.
+      operationId: changeEmail
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - current_password
+                - new_email
+              properties:
+                current_password:
+                  type: string
+                  format: password
+                  example: password123
+                new_email:
+                  type: string
+                  format: email
+                  example: newemail@example.com
+      responses:
+        '200':
+          description: Код отправлен на новый email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeEmailResponse'
+        '401':
+          description: Неавторизован или неверный пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email уже занят
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/email/change/complete:
+    post:
+      tags:
+        - Auth
+      summary: Смена email (шаг 2)
+      description: |
+        Завершает смену email адреса.
+        
+        **Требует:** Access токен + код из письма на НОВЫЙ email
+      operationId: changeEmailComplete
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: '739097'
+      responses:
+        '200':
+          description: Email изменён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeEmailCompleteResponse'
+        '400':
+          description: Неверный код
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # === AUTH: Change Password ===
+  /api/v1/auth/password/change:
+    post:
+      tags:
+        - Auth
+      summary: Смена пароля (шаг 1)
+      description: |
+        Инициирует смену пароля.
+        
+        **Требует:** Access токен + текущий пароль + новый пароль
+        
+        **Шаг 2:** Вызовите `/api/v1/auth/password/change/complete` с кодом из письма.
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - current_password
+                - new_password
+              properties:
+                current_password:
+                  type: string
+                  format: password
+                  example: password123
+                new_password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: newpassword123
+      responses:
+        '200':
+          description: Код отправлен на email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangePasswordResponse'
+        '401':
+          description: Неавторизован или неверный пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/password/change/complete:
+    post:
+      tags:
+        - Auth
+      summary: Смена пароля (шаг 2)
+      description: |
+        Завершает смену пароля.
+        
+        **Требует:** Access токен + код из письма
+        
+        **Важно:** Все активные сессии будут завершены (refresh токены аннулированы).
+      operationId: changePasswordComplete
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: '739097'
+      responses:
+        '200':
+          description: Пароль изменён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangePasswordCompleteResponse'
+        '400':
+          description: Неверный код
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # === AUTH: Change Meta ===
+  /api/v1/auth/meta/change:
+    post:
+      tags:
+        - Auth
+      summary: Смена имени
+      description: |
+        Изменяет имя пользователя.
+        
+        **Требует:** Access токен
+        
+        **Не требует 2FA подтверждения.**
+      operationId: changeMeta
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: New Name
+      responses:
+        '200':
+          description: Имя изменено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeMetaResponse'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # === FILES ===
+  /api/v1/files:
+    get:
+      tags:
+        - Files
+      summary: Список файлов
+      description: |
+        Получает список файлов пользователя с пагинацией.
+        
+        **Требует:** Access токен
+      operationId: listFiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Номер страницы
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Размер страницы
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Поиск по имени файла
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [name, size, created_at]
+            default: created_at
+          description: Сортировка
+        - name: sort_order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Порядок сортировки
+        - name: is_trashed
+          in: query
+          schema:
+            type: boolean
+          description: Показать файлы из корзины
+      responses:
+        '200':
+          description: Список файлов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileListResponse'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/files/upload:
+    post:
+      tags:
+        - Files
+      summary: Инициация загрузки файла
+      description: |
+        Получает presigned URL для загрузки файла напрямую в хранилище.
+        
+        **Flow:**
+        1. Этот запрос → получает UploadURL
+        2. PUT запрос на UploadURL → загрузка файла
+        3. POST /api/v1/files/upload/complete → завершение
+        
+        **Требует:** Access токен
+      operationId: initiateUpload
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+                - path
+                - mime_type
+                - size
+              properties:
+                filename:
+                  type: string
+                  example: document.pdf
+                path:
+                  type: string
+                  example: /documents
+                mime_type:
+                  type: string
+                  example: application/pdf
+                size:
+                  type: integer
+                  example: 1048576
+                is_public:
+                  type: boolean
+                  default: false
+                tags:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  example:
+                    category: work
+                    project: alpha
+      responses:
+        '201':
+          description: Presigned URL получен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadInitResponse'
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL для загрузки файла
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/files/upload/complete:
+    post:
+      tags:
+        - Files
+      summary: Завершение загрузки файла
+      description: |
+        Подтверждает успешную загрузку файла в хранилище.
+        
+        **Требует:** Access токен + file_id из /api/v1/files/upload
+      operationId: completeUpload
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - file_id
+              properties:
+                file_id:
+                  type: string
+                  format: uuid
+                  example: d9028fae-2804-4186-9caa-c36dabd80aea
+      responses:
+        '200':
+          description: Загрузка завершена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Файл не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/files/download/{file_id}:
+    get:
+      tags:
+        - Files
+      summary: Получение ссылки на скачивание
+      description: |
+        Получает presigned URL для скачивания файла.
+        
+        **Требует:** Access токен + права доступа к файлу
+      operationId: getDownloadLink
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID файла
+        - name: expires_in
+          in: query
+          schema:
+            type: integer
+            default: 3600
+            maximum: 86400
+          description: Время действия ссылки (секунды)
+      responses:
+        '200':
+          description: Ссылка на скачивание
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadResponse'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет доступа к файлу
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Файл не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/files/trash/{file_id}:
+    delete:
+      tags:
+        - Files
+      summary: Перемещение в корзину
+      description: |
+        Перемещает файл в корзину (мягкое удаление).
+        
+        **Требует:** Access токен + права владельца
+        
+        **Восстановление:** POST /api/v1/files/restore/{file_id}
+      operationId: trashFile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID файла
+      responses:
+        '200':
+          description: Файл перемещён в корзину
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileOperationResponse'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет доступа к файлу
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Файл не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/files/restore/{file_id}:
+    post:
+      tags:
+        - Files
+      summary: Восстановление из корзины
+      description: |
+        Восстанавливает файл из корзины.
+        
+        **Требует:** Access токен + права владельца
+      operationId: restoreFile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID файла
+      responses:
+        '200':
+          description: Файл восстановлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileOperationResponse'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет доступа к файлу
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Файл не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/files/{file_id}:
+    get:
+      tags:
+        - Files
+      summary: Информация о файле
+      description: |
+        Получает метаданные файла.
+        
+        **Требует:** Access токен + права доступа
+      operationId: getFile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID файла
+      responses:
+        '200':
+          description: Метаданные файла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет доступа к файлу
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Файл не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Files
+      summary: Удаление файла
+      description: |
+        Полностью удаляет файл (из хранилища и БД).
+        
+        **Требует:** Access токен + права владельца
+        
+        **Внимание:** Необратимая операция! Для мягкого удаления используйте /trash.
+      operationId: deleteFile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID файла
+      responses:
+        '200':
+          description: Файл удалён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileOperationResponse'
+        '401':
+          description: Неавторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Нет доступа к файлу
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Файл не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Access Token из ответа /login или /refresh
+
+  schemas:
+    # === Общие ===
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Сообщение об ошибке
+          example: invalid credentials
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Operation completed successfully
+
+    # === Auth: Registration ===
+    RegisterResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        message:
+          type: string
+          example: Verification code sent to email
+
+    # === Auth: Tokens ===
+    AuthTokensResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        access_token:
+          type: string
+          description: JWT Access Token (15 минут)
+        access_expires_in:
+          type: integer
+          description: Время жизни access токена (секунды)
+          example: 900
+        refresh_token:
+          type: string
+          description: JWT Refresh Token (7 дней)
+        refresh_expires_in:
+          type: integer
+          description: Время жизни refresh токена (секунды)
+          example: 604800
+
+    LoginDirectResponse:
+      allOf:
+        - $ref: '#/components/schemas/AuthTokensResponse'
+        - type: object
+          properties:
+            requires_2fa:
+              type: boolean
+              example: false
+
+    Login2FAResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        temp_token:
+          type: string
+          description: Временный токен для второго шага
+        requires_2fa:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 2FA code sent to email
+
+    # === Auth: 2FA ===
+    Enable2FAResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: 2FA code sent to email
+
+    Enable2FACompleteResponse:
+      type: object
+      properties:
+        is_2fa_enabled:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 2FA enabled successfully
+
+    Disable2FAResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Verification code sent to email
+
+    Disable2FACompleteResponse:
+      type: object
+      properties:
+        is_2fa_enabled:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: 2FA disabled successfully
+
+    # === Auth: Change Email ===
+    ChangeEmailResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Verification code sent to new email
+
+    ChangeEmailCompleteResponse:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: newemail@example.com
+        message:
+          type: string
+          example: Email changed successfully
+
+    # === Auth: Change Password ===
+    ChangePasswordResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Verification code sent to email
+
+    ChangePasswordCompleteResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Password changed successfully
+
+    # === Auth: Change Meta ===
+    ChangeMetaResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        message:
+          type: string
+          example: Profile updated successfully
+
+    # === Files: List ===
+    FileListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileResponse'
+        total:
+          type: integer
+          description: Общее количество файлов
+          example: 42
+        page:
+          type: integer
+          example: 1
+        page_size:
+          type: integer
+          example: 20
+
+    # === Files: Single ===
+    FileResponse:
+      type: object
+      properties:
+        file_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+          example: document.pdf
+        original_name:
+          type: string
+          example: my-document.pdf
+        path:
+          type: string
+          example: /documents
+        size:
+          type: integer
+          example: 1048576
+        mime_type:
+          type: string
+          example: application/pdf
+        is_public:
+          type: boolean
+          example: false
+        is_trashed:
+          type: boolean
+          example: false
+        storage_path:
+          type: string
+          example: users/abc123/2026/03/09/unique_name.pdf
+        bucket:
+          type: string
+          example: cloud-storage
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            category: work
+            project: alpha
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-03-09T12:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2026-03-09T12:00:00Z
+
+    # === Files: Upload ===
+    UploadInitResponse:
+      type: object
+      properties:
+        file_id:
+          type: string
+          format: uuid
+        upload_url:
+          type: string
+          format: uri
+          description: Presigned URL для PUT запроса с файлом
+          example: https://minio.example.com/bucket/path/file?X-Amz-Algorithm=...
+        upload_method:
+          type: string
+          enum: [PUT]
+          example: PUT
+        headers:
+          type: object
+          description: Дополнительные заголовки для загрузки
+          additionalProperties:
+            type: string
+          example:
+            Content-Type: application/pdf
+        expires_in:
+          type: integer
+          description: Время действия URL (секунды)
+          example: 900
+
+    # === Files: Download ===
+    DownloadResponse:
+      type: object
+      properties:
+        download_url:
+          type: string
+          format: uri
+          description: Presigned URL для GET запроса
+          example: https://minio.example.com/bucket/path/file?X-Amz-Algorithm=...
+        method:
+          type: string
+          enum: [GET]
+          example: GET
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          example: {}
+        expires_in:
+          type: integer
+          description: Время действия URL (секунды)
+          example: 3600
+
+    # === Files: Trash/Restore/Delete ===
+    FileOperationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true

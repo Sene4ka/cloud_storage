@@ -55,6 +55,9 @@ func NewServer(config *configs.Config) (*Server, error) {
 
 	mux.Handle("/metrics", promhttp.Handler())
 
+	mux.HandleFunc("/docs/", server.handleDocs)
+	mux.HandleFunc("/docs/swagger/", server.handleSwagger)
+
 	mux.HandleFunc("/api/v1/auth/register", server.authHandler.HandleRegister)
 	mux.HandleFunc("/api/v1/auth/register/complete", server.authHandler.HandleRegisterComplete)
 	mux.HandleFunc("/api/v1/auth/login", server.authHandler.HandleLogin)
@@ -100,4 +103,16 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	handler.JSONResponse(w, http.StatusOK, map[string]string{"status": "healthy"})
+}
+
+func (s *Server) handleDocs(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/docs/" || r.URL.Path == "/docs/index.html" {
+		http.ServeFile(w, r, "docs/swagger/index.html")
+		return
+	}
+	http.StripPrefix("/docs/", http.FileServer(http.Dir("docs/swagger"))).ServeHTTP(w, r)
+}
+
+func (s *Server) handleSwagger(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "docs/swagger/gateway-openapi.yaml")
 }
