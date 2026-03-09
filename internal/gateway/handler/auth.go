@@ -169,11 +169,19 @@ func (h *AuthHandler) HandleEnable2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := r.Context().Value("userID")
+	if userID == nil {
+		http.Error(w, `{"error": "user_id not found in context"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req api.Enable2FARequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	req.UserId = userID.(string)
 
 	resp, err := h.authClient.Enable2FA(r.Context(), &req)
 	if err != nil {
@@ -190,11 +198,19 @@ func (h *AuthHandler) HandleEnable2FAComplete(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	userID := r.Context().Value("userID")
+	if userID == nil {
+		http.Error(w, `{"error": "user_id not found in context"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req api.Enable2FACompleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	req.UserId = userID.(string)
 
 	resp, err := h.authClient.Enable2FAComplete(r.Context(), &req)
 	if err != nil {
@@ -211,11 +227,19 @@ func (h *AuthHandler) HandleDisable2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := r.Context().Value("userID")
+	if userID == nil {
+		http.Error(w, `{"error": "user_id not found in context"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req api.Disable2FARequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	req.UserId = userID.(string)
 
 	resp, err := h.authClient.Disable2FA(r.Context(), &req)
 	if err != nil {
@@ -232,11 +256,19 @@ func (h *AuthHandler) HandleDisable2FAComplete(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	userID := r.Context().Value("userID")
+	if userID == nil {
+		http.Error(w, `{"error": "user_id not found in context"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req api.Disable2FACompleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	req.UserId = userID.(string)
 
 	resp, err := h.authClient.Disable2FAComplete(r.Context(), &req)
 	if err != nil {
@@ -253,11 +285,19 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	userID := r.Context().Value("userID")
+	if userID == nil {
+		http.Error(w, `{"error": "user_id not found in context"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req api.ChangeEmailRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	req.UserId = userID.(string)
 
 	resp, err := h.authClient.ChangeEmail(r.Context(), &req)
 	if err != nil {
@@ -274,11 +314,19 @@ func (h *AuthHandler) HandleChangeEmailComplete(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	userID := r.Context().Value("userID")
+	if userID == nil {
+		http.Error(w, `{"error": "user_id not found in context"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req api.ChangeEmailCompleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	req.UserId = userID.(string)
 
 	resp, err := h.authClient.ChangeEmailComplete(r.Context(), &req)
 	if err != nil {
@@ -295,11 +343,19 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	userID := r.Context().Value("userID")
+	if userID == nil {
+		http.Error(w, `{"error": "user_id not found in context"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req api.ChangePasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	req.UserId = userID.(string)
 
 	resp, err := h.authClient.ChangePassword(r.Context(), &req)
 	if err != nil {
@@ -316,11 +372,19 @@ func (h *AuthHandler) HandleChangePasswordComplete(w http.ResponseWriter, r *htt
 		return
 	}
 
+	userID := r.Context().Value("userID")
+	if userID == nil {
+		http.Error(w, `{"error": "user_id not found in context"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req api.ChangePasswordCompleteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	req.UserId = userID.(string)
 
 	resp, err := h.authClient.ChangePasswordComplete(r.Context(), &req)
 	if err != nil {
@@ -337,11 +401,19 @@ func (h *AuthHandler) HandleChangeMeta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := r.Context().Value("userID")
+	if userID == nil {
+		http.Error(w, `{"error": "user_id not found in context"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req api.ChangeMetaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
 		return
 	}
+
+	req.UserId = userID.(string)
 
 	resp, err := h.authClient.ChangeMeta(r.Context(), &req)
 	if err != nil {

@@ -451,6 +451,7 @@ func TestAuthHandler_HandleEnable2FA_Success(t *testing.T) {
 	req := NewTestRequest(http.MethodPost, "/api/v1/auth/2fa/enable", map[string]string{
 		"password": "password123",
 	})
+	req = ContextWithUser(req, "user-123")
 	rr := httptest.NewRecorder()
 
 	handler.HandleEnable2FA(rr, req)
@@ -474,6 +475,23 @@ func TestAuthHandler_HandleEnable2FA_InvalidMethod(t *testing.T) {
 	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
 }
 
+func TestAuthHandler_HandleEnable2FA_NoAuth(t *testing.T) {
+	t.Parallel()
+
+	mockClient := new(MockAuthClient)
+	handler := NewAuthHandler(mockClient)
+
+	req := NewTestRequest(http.MethodPost, "/api/v1/auth/2fa/enable", map[string]string{
+		"password": "password123",
+	})
+	rr := httptest.NewRecorder()
+
+	handler.HandleEnable2FA(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), "user_id not found in context")
+}
+
 func TestAuthHandler_HandleEnable2FAComplete_Success(t *testing.T) {
 	t.Parallel()
 
@@ -488,12 +506,13 @@ func TestAuthHandler_HandleEnable2FAComplete_Success(t *testing.T) {
 	req := NewTestRequest(http.MethodPost, "/api/v1/auth/2fa/enable/complete", map[string]string{
 		"code": "123456",
 	})
+	req = ContextWithUser(req, "user-123")
 	rr := httptest.NewRecorder()
 
 	handler.HandleEnable2FAComplete(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "true")
+	assert.Contains(t, rr.Body.String(), "2FA enabled successfully")
 	mockClient.AssertExpectations(t)
 }
 
@@ -510,6 +529,7 @@ func TestAuthHandler_HandleDisable2FA_Success(t *testing.T) {
 	req := NewTestRequest(http.MethodPost, "/api/v1/auth/2fa/disable", map[string]string{
 		"password": "password123",
 	})
+	req = ContextWithUser(req, "user-123")
 	rr := httptest.NewRecorder()
 
 	handler.HandleDisable2FA(rr, req)
@@ -517,6 +537,23 @@ func TestAuthHandler_HandleDisable2FA_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Verification code sent")
 	mockClient.AssertExpectations(t)
+}
+
+func TestAuthHandler_HandleDisable2FA_NoAuth(t *testing.T) {
+	t.Parallel()
+
+	mockClient := new(MockAuthClient)
+	handler := NewAuthHandler(mockClient)
+
+	req := NewTestRequest(http.MethodPost, "/api/v1/auth/2fa/disable", map[string]string{
+		"password": "password123",
+	})
+	rr := httptest.NewRecorder()
+
+	handler.HandleDisable2FA(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), "user_id not found in context")
 }
 
 func TestAuthHandler_HandleDisable2FAComplete_Success(t *testing.T) {
@@ -533,6 +570,7 @@ func TestAuthHandler_HandleDisable2FAComplete_Success(t *testing.T) {
 	req := NewTestRequest(http.MethodPost, "/api/v1/auth/2fa/disable/complete", map[string]string{
 		"code": "123456",
 	})
+	req = ContextWithUser(req, "user-123")
 	rr := httptest.NewRecorder()
 
 	handler.HandleDisable2FAComplete(rr, req)
@@ -556,6 +594,7 @@ func TestAuthHandler_HandleChangeEmail_Success(t *testing.T) {
 		"current_password": "password123",
 		"new_email":        "new@example.com",
 	})
+	req = ContextWithUser(req, "user-123")
 	rr := httptest.NewRecorder()
 
 	handler.HandleChangeEmail(rr, req)
@@ -563,6 +602,24 @@ func TestAuthHandler_HandleChangeEmail_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Verification code sent")
 	mockClient.AssertExpectations(t)
+}
+
+func TestAuthHandler_HandleChangeEmail_NoAuth(t *testing.T) {
+	t.Parallel()
+
+	mockClient := new(MockAuthClient)
+	handler := NewAuthHandler(mockClient)
+
+	req := NewTestRequest(http.MethodPost, "/api/v1/auth/email/change", map[string]string{
+		"current_password": "password123",
+		"new_email":        "new@example.com",
+	})
+	rr := httptest.NewRecorder()
+
+	handler.HandleChangeEmail(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), "user_id not found in context")
 }
 
 func TestAuthHandler_HandleChangeEmailComplete_Success(t *testing.T) {
@@ -579,6 +636,7 @@ func TestAuthHandler_HandleChangeEmailComplete_Success(t *testing.T) {
 	req := NewTestRequest(http.MethodPost, "/api/v1/auth/email/change/complete", map[string]string{
 		"code": "123456",
 	})
+	req = ContextWithUser(req, "user-123")
 	rr := httptest.NewRecorder()
 
 	handler.HandleChangeEmailComplete(rr, req)
@@ -602,6 +660,7 @@ func TestAuthHandler_HandleChangePassword_Success(t *testing.T) {
 		"current_password": "password123",
 		"new_password":     "newpassword123",
 	})
+	req = ContextWithUser(req, "user-123")
 	rr := httptest.NewRecorder()
 
 	handler.HandleChangePassword(rr, req)
@@ -609,6 +668,24 @@ func TestAuthHandler_HandleChangePassword_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Verification code sent")
 	mockClient.AssertExpectations(t)
+}
+
+func TestAuthHandler_HandleChangePassword_NoAuth(t *testing.T) {
+	t.Parallel()
+
+	mockClient := new(MockAuthClient)
+	handler := NewAuthHandler(mockClient)
+
+	req := NewTestRequest(http.MethodPost, "/api/v1/auth/password/change", map[string]string{
+		"current_password": "password123",
+		"new_password":     "newpassword123",
+	})
+	rr := httptest.NewRecorder()
+
+	handler.HandleChangePassword(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), "user_id not found in context")
 }
 
 func TestAuthHandler_HandleChangePasswordComplete_Success(t *testing.T) {
@@ -624,6 +701,7 @@ func TestAuthHandler_HandleChangePasswordComplete_Success(t *testing.T) {
 	req := NewTestRequest(http.MethodPost, "/api/v1/auth/password/change/complete", map[string]string{
 		"code": "123456",
 	})
+	req = ContextWithUser(req, "user-123")
 	rr := httptest.NewRecorder()
 
 	handler.HandleChangePasswordComplete(rr, req)
@@ -648,6 +726,7 @@ func TestAuthHandler_HandleChangeMeta_Success(t *testing.T) {
 	req := NewTestRequest(http.MethodPost, "/api/v1/auth/meta/change", map[string]string{
 		"name": "New Name",
 	})
+	req = ContextWithUser(req, "user-123")
 	rr := httptest.NewRecorder()
 
 	handler.HandleChangeMeta(rr, req)
@@ -655,4 +734,21 @@ func TestAuthHandler_HandleChangeMeta_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "New Name")
 	mockClient.AssertExpectations(t)
+}
+
+func TestAuthHandler_HandleChangeMeta_NoAuth(t *testing.T) {
+	t.Parallel()
+
+	mockClient := new(MockAuthClient)
+	handler := NewAuthHandler(mockClient)
+
+	req := NewTestRequest(http.MethodPost, "/api/v1/auth/meta/change", map[string]string{
+		"name": "New Name",
+	})
+	rr := httptest.NewRecorder()
+
+	handler.HandleChangeMeta(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), "user_id not found in context")
 }

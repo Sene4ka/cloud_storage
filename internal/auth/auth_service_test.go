@@ -448,9 +448,16 @@ func TestAuthService_Login_EmailNotVerified(t *testing.T) {
 	svc := NewAuthService(mockRepo, mockCache, mockTokenMgr, mockMail, config)
 
 	user, _ := models.NewUser("test@example.com", "password123", "Test User")
+	user.ID = "user-123"
 	user.IsVerified = false
+	user.Is2FAEnabled = false
 
 	mockRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(user, nil)
+	mockMail.On("Send2FACode", mock.Anything, mock.Anything).Return(&api.Send2FACodeResponse{
+		Success: true,
+	}, nil)
+	mockCache.On("Set", mock.Anything, "2fa:user-123", mock.Anything, 5*time.Minute).Return(nil)
+	mockTokenMgr.On("GenerateTempToken", "user-123", "test@example.com").Return("temp-token", nil)
 
 	input := &LoginInput{
 		Email:    "test@example.com",
@@ -459,10 +466,16 @@ func TestAuthService_Login_EmailNotVerified(t *testing.T) {
 
 	output, err := svc.Login(context.Background(), input)
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "email not verified")
-	assert.Nil(t, output)
+	assert.NoError(t, err)
+	assert.NotNil(t, output)
+	assert.Equal(t, "user-123", output.UserID)
+	assert.Equal(t, "temp-token", output.TempToken)
+	assert.True(t, output.Requires2FA)
+	assert.Contains(t, output.Message, "2FA code sent")
 	mockRepo.AssertExpectations(t)
+	mockMail.AssertExpectations(t)
+	mockCache.AssertExpectations(t)
+	mockTokenMgr.AssertExpectations(t)
 }
 
 func TestAuthService_LoginComplete_Success(t *testing.T) {
@@ -495,6 +508,10 @@ func TestAuthService_LoginComplete_Success(t *testing.T) {
 	mockTokenMgr.On("ValidateTempToken", "temp-token").Return(claims, nil)
 	mockCache.On("Get", mock.Anything, "2fa:user-123").Return("123456", nil)
 	mockRepo.On("GetByID", mock.Anything, "user-123").Return(user, nil)
+	mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(u *models.User) bool {
+		return u.IsVerified == true
+	})).Return(nil)
+
 	mockTokenMgr.On("GenerateTokenPair", "user-123", "test@example.com").Return("access-token", "refresh-token", nil)
 	mockCache.On("Set", mock.Anything, "refresh:user-123", "refresh-token", 7*24*time.Hour).Return(nil)
 	mockCache.On("Del", mock.Anything, "2fa:user-123").Return(nil)
