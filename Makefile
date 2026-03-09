@@ -40,7 +40,7 @@ docker-build: build
 	@echo "Docker images built."
 
 # Start services with Docker Compose
-docker-up:
+docker-up: docker-build
 	@echo "Starting services with Docker Compose..."
 	@$(DOCKER_COMPOSE) up -d
 

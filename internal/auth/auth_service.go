@@ -9,6 +9,7 @@ import (
 
 	"github.com/Sene4ka/cloud_storage/configs"
 	"github.com/Sene4ka/cloud_storage/internal/api"
+	"github.com/Sene4ka/cloud_storage/internal/metrics"
 	"github.com/Sene4ka/cloud_storage/internal/models"
 	"github.com/Sene4ka/cloud_storage/internal/utils"
 	"github.com/redis/go-redis/v9"
@@ -76,7 +77,15 @@ func generate2FACode() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
-func (s *authService) Register(ctx context.Context, input *RegisterInput) (*RegisterOutput, error) {
+func (s *authService) Register(ctx context.Context, input *RegisterInput) (output *RegisterOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("register", status)
+	}()
+
 	exists, err := s.userRepo.ExistsByEmail(ctx, input.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check user existence: %w", err)
@@ -121,7 +130,15 @@ func (s *authService) Register(ctx context.Context, input *RegisterInput) (*Regi
 	}, nil
 }
 
-func (s *authService) RegisterComplete(ctx context.Context, input *RegisterCompleteInput) (*RegisterCompleteOutput, error) {
+func (s *authService) RegisterComplete(ctx context.Context, input *RegisterCompleteInput) (output *RegisterCompleteOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("register_complete", status)
+	}()
+
 	storedCode, err := s.tokenCache.Get(ctx, "verify:"+input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("verification code not found or expired")
@@ -165,7 +182,15 @@ func (s *authService) RegisterComplete(ctx context.Context, input *RegisterCompl
 	}, nil
 }
 
-func (s *authService) Login(ctx context.Context, input *LoginInput) (*LoginOutput, error) {
+func (s *authService) Login(ctx context.Context, input *LoginInput) (output *LoginOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("login", status)
+	}()
+
 	user, err := s.userRepo.GetByEmail(ctx, input.Email)
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials")
@@ -231,7 +256,15 @@ func (s *authService) Login(ctx context.Context, input *LoginInput) (*LoginOutpu
 	}, nil
 }
 
-func (s *authService) LoginComplete(ctx context.Context, input *LoginCompleteInput) (*LoginCompleteOutput, error) {
+func (s *authService) LoginComplete(ctx context.Context, input *LoginCompleteInput) (output *LoginCompleteOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("login_complete", status)
+	}()
+
 	claims, err := s.tokenMgr.ValidateTempToken(input.TempToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid or expired temp token: %w", err)
@@ -282,7 +315,15 @@ func (s *authService) LoginComplete(ctx context.Context, input *LoginCompleteInp
 	}, nil
 }
 
-func (s *authService) Enable2FA(ctx context.Context, input *Enable2FAInput) (*Enable2FAOutput, error) {
+func (s *authService) Enable2FA(ctx context.Context, input *Enable2FAInput) (output *Enable2FAOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("enable_2fa", status)
+	}()
+
 	user, err := s.userRepo.GetByID(ctx, input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -315,7 +356,15 @@ func (s *authService) Enable2FA(ctx context.Context, input *Enable2FAInput) (*En
 	}, nil
 }
 
-func (s *authService) Enable2FAComplete(ctx context.Context, input *Enable2FACompleteInput) (*Enable2FACompleteOutput, error) {
+func (s *authService) Enable2FAComplete(ctx context.Context, input *Enable2FACompleteInput) (output *Enable2FACompleteOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("enable_2fa_complete", status)
+	}()
+
 	storedCode, err := s.tokenCache.Get(ctx, "enable_2fa:"+input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("2FA code not found or expired")
@@ -344,7 +393,15 @@ func (s *authService) Enable2FAComplete(ctx context.Context, input *Enable2FACom
 	}, nil
 }
 
-func (s *authService) Disable2FA(ctx context.Context, input *Disable2FAInput) (*Disable2FAOutput, error) {
+func (s *authService) Disable2FA(ctx context.Context, input *Disable2FAInput) (output *Disable2FAOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("disable_2fa", status)
+	}()
+
 	user, err := s.userRepo.GetByID(ctx, input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -381,7 +438,15 @@ func (s *authService) Disable2FA(ctx context.Context, input *Disable2FAInput) (*
 	}, nil
 }
 
-func (s *authService) Disable2FAComplete(ctx context.Context, input *Disable2FACompleteInput) (*Disable2FACompleteOutput, error) {
+func (s *authService) Disable2FAComplete(ctx context.Context, input *Disable2FACompleteInput) (output *Disable2FACompleteOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("disable_2fa_complete", status)
+	}()
+
 	storedCode, err := s.tokenCache.Get(ctx, "disable_2fa:"+input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("verification code not found or expired")
@@ -410,7 +475,15 @@ func (s *authService) Disable2FAComplete(ctx context.Context, input *Disable2FAC
 	}, nil
 }
 
-func (s *authService) ChangeEmail(ctx context.Context, input *ChangeEmailInput) (*ChangeEmailOutput, error) {
+func (s *authService) ChangeEmail(ctx context.Context, input *ChangeEmailInput) (output *ChangeEmailOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("change_email", status)
+	}()
+
 	user, err := s.userRepo.GetByID(ctx, input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -451,7 +524,15 @@ func (s *authService) ChangeEmail(ctx context.Context, input *ChangeEmailInput) 
 	}, nil
 }
 
-func (s *authService) ChangeEmailComplete(ctx context.Context, input *ChangeEmailCompleteInput) (*ChangeEmailCompleteOutput, error) {
+func (s *authService) ChangeEmailComplete(ctx context.Context, input *ChangeEmailCompleteInput) (output *ChangeEmailCompleteOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("change_email_complete", status)
+	}()
+
 	storedData, err := s.tokenCache.Get(ctx, "change_email:"+input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("verification code not found or expired")
@@ -482,7 +563,15 @@ func (s *authService) ChangeEmailComplete(ctx context.Context, input *ChangeEmai
 	}, nil
 }
 
-func (s *authService) ChangePassword(ctx context.Context, input *ChangePasswordInput) (*ChangePasswordOutput, error) {
+func (s *authService) ChangePassword(ctx context.Context, input *ChangePasswordInput) (output *ChangePasswordOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("change_password", status)
+	}()
+
 	user, err := s.userRepo.GetByID(ctx, input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -515,7 +604,15 @@ func (s *authService) ChangePassword(ctx context.Context, input *ChangePasswordI
 	}, nil
 }
 
-func (s *authService) ChangePasswordComplete(ctx context.Context, input *ChangePasswordCompleteInput) (*ChangePasswordCompleteOutput, error) {
+func (s *authService) ChangePasswordComplete(ctx context.Context, input *ChangePasswordCompleteInput) (output *ChangePasswordCompleteOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("change_password_complete", status)
+	}()
+
 	storedData, err := s.tokenCache.Get(ctx, "change_password:"+input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("verification code not found or expired")
@@ -550,7 +647,15 @@ func (s *authService) ChangePasswordComplete(ctx context.Context, input *ChangeP
 	}, nil
 }
 
-func (s *authService) ChangeMeta(ctx context.Context, input *ChangeMetaInput) (*ChangeMetaOutput, error) {
+func (s *authService) ChangeMeta(ctx context.Context, input *ChangeMetaInput) (output *ChangeMetaOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("change_meta", status)
+	}()
+
 	user, err := s.userRepo.GetByID(ctx, input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -578,7 +683,15 @@ func splitStoredData(data string) (string, string, bool) {
 	return "", "", false
 }
 
-func (s *authService) Refresh(ctx context.Context, input *RefreshInput) (*RefreshOutput, error) {
+func (s *authService) Refresh(ctx context.Context, input *RefreshInput) (output *RefreshOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("refresh", status)
+	}()
+
 	blacklisted, err := s.tokenCache.Exists(ctx, "blacklist:"+input.RefreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("redis blacklist check failed: %w", err)
@@ -618,7 +731,15 @@ func (s *authService) Refresh(ctx context.Context, input *RefreshInput) (*Refres
 	}, nil
 }
 
-func (s *authService) ValidateToken(ctx context.Context, input *ValidateTokenInput) (*ValidateTokenOutput, error) {
+func (s *authService) ValidateToken(ctx context.Context, input *ValidateTokenInput) (output *ValidateTokenOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("validate_token", status)
+	}()
+
 	claims, err := s.tokenMgr.ValidateAccessToken(input.Token)
 	if err != nil {
 		return &ValidateTokenOutput{Valid: false}, nil
@@ -632,7 +753,15 @@ func (s *authService) ValidateToken(ctx context.Context, input *ValidateTokenInp
 	}, nil
 }
 
-func (s *authService) Logout(ctx context.Context, input *LogoutInput) (*LogoutOutput, error) {
+func (s *authService) Logout(ctx context.Context, input *LogoutInput) (output *LogoutOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordAuthOperation("logout", status)
+	}()
+
 	claims, err := s.tokenMgr.ValidateRefreshToken(input.RefreshToken)
 	if err != nil {
 		return &LogoutOutput{Success: false}, nil

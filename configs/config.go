@@ -14,6 +14,7 @@ type Config struct {
 	JWT      JWTConfig
 	Services ServicesConfig
 	SMTP     SMTPConfig
+	Metrics  MetricsConfig
 }
 
 type ServerConfig struct {
@@ -70,6 +71,10 @@ type ServicesConfig struct {
 	MailAddr     string
 }
 
+type MetricsConfig struct {
+	Port string
+}
+
 func LoadConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -118,6 +123,9 @@ func LoadConfig() *Config {
 			MetadataAddr: getEnv("METADATA_SERVICE_ADDR", "localhost:50052"),
 			FileAddr:     getEnv("FILE_SERVICE_ADDR", "localhost:50053"),
 			MailAddr:     getEnv("MAIL_SERVICE_ADDR", "localhost:50054"),
+		},
+		Metrics: MetricsConfig{
+			Port: getEnv("METRICS_PORT", "9002"),
 		},
 	}
 }

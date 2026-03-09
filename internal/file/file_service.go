@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Sene4ka/cloud_storage/configs"
+	"github.com/Sene4ka/cloud_storage/internal/metrics"
 	"github.com/Sene4ka/cloud_storage/internal/models"
 	"github.com/Sene4ka/cloud_storage/internal/utils"
 	"github.com/minio/minio-go/v7"
@@ -87,7 +88,19 @@ func NewFileServiceWithMinio(fileRepo FileRepository, config *configs.Config) (*
 	return NewFileService(fileRepo, storage, presigned, config), nil
 }
 
-func (s *fileService) InitiateUpload(ctx context.Context, input *InitiateUploadInput) (*InitiateUploadOutput, error) {
+func (s *fileService) InitiateUpload(ctx context.Context, input *InitiateUploadInput) (output *InitiateUploadOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordFileOperation("upload_initiate", status)
+	}()
+
+	if input.UserID == "" {
+		return nil, fmt.Errorf("user_id is required")
+	}
+
 	if err := utils.ValidatePath(input.Path); err != nil {
 		return nil, fmt.Errorf("invalid path: %w", err)
 	}
@@ -125,7 +138,15 @@ func (s *fileService) InitiateUpload(ctx context.Context, input *InitiateUploadI
 	}, nil
 }
 
-func (s *fileService) CompleteUpload(ctx context.Context, input *CompleteUploadInput) (*CompleteUploadOutput, error) {
+func (s *fileService) CompleteUpload(ctx context.Context, input *CompleteUploadInput) (output *CompleteUploadOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordFileOperation("upload_complete", status)
+	}()
+
 	file, err := s.fileRepo.GetByID(ctx, input.FileID)
 	if err != nil {
 		return nil, fmt.Errorf("file not found: %w", err)
@@ -143,7 +164,15 @@ func (s *fileService) CompleteUpload(ctx context.Context, input *CompleteUploadI
 	}, nil
 }
 
-func (s *fileService) GetDownloadLink(ctx context.Context, input *GetDownloadLinkInput) (*GetDownloadLinkOutput, error) {
+func (s *fileService) GetDownloadLink(ctx context.Context, input *GetDownloadLinkInput) (output *GetDownloadLinkOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordFileOperation("download", status)
+	}()
+
 	hasAccess, storagePath, bucket, err := s.fileRepo.CheckAccess(ctx, input.FileID, input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check access: %w", err)
@@ -167,7 +196,15 @@ func (s *fileService) GetDownloadLink(ctx context.Context, input *GetDownloadLin
 	}, nil
 }
 
-func (s *fileService) DeleteFile(ctx context.Context, input *DeleteFileInput) (*DeleteFileOutput, error) {
+func (s *fileService) DeleteFile(ctx context.Context, input *DeleteFileInput) (output *DeleteFileOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordFileOperation("delete", status)
+	}()
+
 	file, err := s.fileRepo.GetByID(ctx, input.FileID)
 	if err != nil {
 		return nil, fmt.Errorf("file not found: %w", err)
@@ -185,7 +222,15 @@ func (s *fileService) DeleteFile(ctx context.Context, input *DeleteFileInput) (*
 	return &DeleteFileOutput{Success: true}, nil
 }
 
-func (s *fileService) GetFileInfo(ctx context.Context, input *GetFileInfoInput) (*GetFileInfoOutput, error) {
+func (s *fileService) GetFileInfo(ctx context.Context, input *GetFileInfoInput) (output *GetFileInfoOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordFileOperation("get_info", status)
+	}()
+
 	hasAccess, _, _, err := s.fileRepo.CheckAccess(ctx, input.FileID, input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check access: %w", err)

@@ -9,6 +9,7 @@ import (
 	"github.com/Sene4ka/cloud_storage/internal/api"
 	"github.com/Sene4ka/cloud_storage/internal/gateway/handler"
 	"github.com/Sene4ka/cloud_storage/internal/gateway/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -49,7 +50,10 @@ func NewServer(config *configs.Config) (*Server, error) {
 	}
 
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/health", server.handleHealth)
+
+	mux.Handle("/metrics", promhttp.Handler())
 
 	mux.HandleFunc("/api/v1/auth/register", server.authHandler.HandleRegister)
 	mux.HandleFunc("/api/v1/auth/register/complete", server.authHandler.HandleRegisterComplete)
@@ -78,7 +82,7 @@ func NewServer(config *configs.Config) (*Server, error) {
 
 	server.httpServer = &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", config.Server.Host, config.Server.Port),
-		Handler:      middleware.CORS(mux),
+		Handler:      middleware.Metrics(middleware.CORS(mux)),
 		ReadTimeout:  config.Server.ReadTimeout,
 		WriteTimeout: config.Server.WriteTimeout,
 	}

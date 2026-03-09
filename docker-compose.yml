@@ -74,6 +74,61 @@ services:
       timeout: 20s
       retries: 3
 
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    ports:
+      - "${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - cloud_storage_network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: grafana
+    ports:
+      - "${GF_PORT}:${GF_PORT}"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=${GF_USERS_ALLOW_SIGN_UP}
+      - GF_PROVISIONING_ENABLED=${GF_PROVISIONING_ENABLED}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - cloud_storage_network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.6.0
+    container_name: node-exporter
+    ports:
+      - "${NODE_EXPLORER_PORT}:${NODE_EXPLORER_PORT}"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - cloud_storage_network
+    restart: unless-stopped
+
   # Auth Service
   auth-service:
     build:
@@ -81,6 +136,8 @@ services:
       dockerfile: deployments/docker/Dockerfile.auth
     container_name: cloud_storage_auth
     environment:
+      AUTH_SERVICE_ADDR: ${AUTH_SERVICE_ADDR}
+      METRICS_PORT: ${AUTH_METRICS_PORT}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
@@ -95,6 +152,7 @@ services:
       MAIL_SERVICE_ADDR: ${MAIL_SERVICE_ADDR}
     ports:
       - "50051:50051"
+      - "${AUTH_METRICS_PORT}:${AUTH_METRICS_PORT}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,6 +168,8 @@ services:
       dockerfile: deployments/docker/Dockerfile.metadata
     container_name: cloud_storage_metadata
     environment:
+      METADATA_SERVICE_ADDR: ${METADATA_SERVICE_ADDR}
+      METRICS_PORT: ${METADATA_METRICS_PORT}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
@@ -118,6 +178,7 @@ services:
       DB_SSLMODE: ${DB_SSLMODE}
     ports:
       - "50052:50052"
+      - "${METADATA_METRICS_PORT}:${METADATA_METRICS_PORT}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,6 +192,8 @@ services:
       dockerfile: deployments/docker/Dockerfile.file
     container_name: cloud_storage_file
     environment:
+      FILE_SERVICE_ADDR: ${FILE_SERVICE_ADDR}
+      METRICS_PORT: ${FILE_METRICS_PORT}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
@@ -145,6 +208,7 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET}
     ports:
       - "50053:50053"
+      - "${FILE_METRICS_PORT}:${FILE_METRICS_PORT}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -160,6 +224,8 @@ services:
       dockerfile: deployments/docker/Dockerfile.mail
     container_name: cloud_storage_mail
     environment:
+      MAIL_SERVICE_ADDR: ${MAIL_SERVICE_ADDR}
+      METRICS_PORT: ${MAIL_METRICS_PORT}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_EMAIL_ADDRESS: ${SMTP_EMAIL_ADDRESS}
@@ -168,6 +234,7 @@ services:
     ports:
       - "50054:50054"
       - "${SMTP_PORT}:${SMTP_PORT}"
+      - "${MAIL_METRICS_PORT}:${MAIL_METRICS_PORT}"
     networks:
       - cloud_storage_network
 
@@ -199,6 +266,8 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   cloud_storage_network:

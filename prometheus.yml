@@ -1,0 +1,37 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['cloud_storage_gateway:8080']
+    metrics_path: '/metrics'
+
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['cloud_storage_auth:9002']
+    metrics_path: '/metrics'
+
+  - job_name: 'file-service'
+    static_configs:
+      - targets: ['cloud_storage_file:9003']
+    metrics_path: '/metrics'
+
+  - job_name: 'metadata-service'
+    static_configs:
+      - targets: ['cloud_storage_metadata:9004']
+    metrics_path: '/metrics'
+
+  - job_name: 'mail-service'
+    static_configs:
+      - targets: ['cloud_storage_mail:9005']
+    metrics_path: '/metrics'
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']

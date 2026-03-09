@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Sene4ka/cloud_storage/internal/metrics"
 	"github.com/Sene4ka/cloud_storage/internal/models"
 	"github.com/Sene4ka/cloud_storage/internal/utils"
 )
@@ -27,7 +28,15 @@ func NewMetadataService(fileRepo FileRepository) *metadataService {
 	return &metadataService{fileRepo: fileRepo}
 }
 
-func (s *metadataService) GetMetadata(ctx context.Context, input *GetMetadataInput) (*GetMetadataOutput, error) {
+func (s *metadataService) GetMetadata(ctx context.Context, input *GetMetadataInput) (output *GetMetadataOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordMetadataOperation("get_metadata", status)
+	}()
+
 	file, err := s.fileRepo.GetByID(ctx, input.FileID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get metadata: %w", err)
@@ -40,7 +49,15 @@ func (s *metadataService) GetMetadata(ctx context.Context, input *GetMetadataInp
 	return &GetMetadataOutput{File: file}, nil
 }
 
-func (s *metadataService) ListMetadata(ctx context.Context, input *ListMetadataInput) (*ListMetadataOutput, error) {
+func (s *metadataService) ListMetadata(ctx context.Context, input *ListMetadataInput) (output *ListMetadataOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordMetadataOperation("list_metadata", status)
+	}()
+
 	files, total, err := s.fileRepo.ListByUserID(
 		ctx,
 		input.UserID,
@@ -63,7 +80,15 @@ func (s *metadataService) ListMetadata(ctx context.Context, input *ListMetadataI
 	}, nil
 }
 
-func (s *metadataService) UpdateMetadata(ctx context.Context, input *UpdateMetadataInput) (*UpdateMetadataOutput, error) {
+func (s *metadataService) UpdateMetadata(ctx context.Context, input *UpdateMetadataInput) (output *UpdateMetadataOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordMetadataOperation("update_metadata", status)
+	}()
+
 	if err := utils.ValidatePath(input.Path); err != nil {
 		return nil, fmt.Errorf("invalid path: %w", err)
 	}
@@ -91,7 +116,15 @@ func (s *metadataService) UpdateMetadata(ctx context.Context, input *UpdateMetad
 	return &UpdateMetadataOutput{File: existing}, nil
 }
 
-func (s *metadataService) CheckAccess(ctx context.Context, input *CheckAccessInput) (*CheckAccessOutput, error) {
+func (s *metadataService) CheckAccess(ctx context.Context, input *CheckAccessInput) (output *CheckAccessOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordMetadataOperation("check_access", status)
+	}()
+
 	hasAccess, storagePath, bucket, err := s.fileRepo.CheckAccess(ctx, input.FileID, input.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check access: %w", err)
@@ -104,14 +137,30 @@ func (s *metadataService) CheckAccess(ctx context.Context, input *CheckAccessInp
 	}, nil
 }
 
-func (s *metadataService) TrashFile(ctx context.Context, input *TrashFileInput) (*TrashFileOutput, error) {
+func (s *metadataService) TrashFile(ctx context.Context, input *TrashFileInput) (output *TrashFileOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordMetadataOperation("trash_file", status)
+	}()
+
 	if err := s.fileRepo.SetTrashed(ctx, input.FileID, input.UserID, true); err != nil {
 		return nil, err
 	}
 	return &TrashFileOutput{Success: true}, nil
 }
 
-func (s *metadataService) RestoreFile(ctx context.Context, input *RestoreFileInput) (*RestoreFileOutput, error) {
+func (s *metadataService) RestoreFile(ctx context.Context, input *RestoreFileInput) (output *RestoreFileOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordMetadataOperation("restore_file", status)
+	}()
+
 	if err := s.fileRepo.SetTrashed(ctx, input.FileID, input.UserID, false); err != nil {
 		return nil, err
 	}

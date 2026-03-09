@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/Sene4ka/cloud_storage/configs"
+	"github.com/Sene4ka/cloud_storage/internal/metrics"
 	"gopkg.in/gomail.v2"
 )
 
@@ -35,7 +36,15 @@ func NewMailServiceWithDialer(config *configs.Config) (*mailService, error) {
 	return NewMailService(config, smtpSender), nil
 }
 
-func (s *mailService) Send2FACode(ctx context.Context, input *Send2FACodeInput) (*Send2FACodeOutput, error) {
+func (s *mailService) Send2FACode(ctx context.Context, input *Send2FACodeInput) (output *Send2FACodeOutput, err error) {
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "error"
+		}
+		metrics.RecordMailOperation("send_2fa_code", status)
+	}()
+
 	m := gomail.NewMessage()
 	m.SetHeader("From", s.config.SMTP.EmailAddress)
 	m.SetHeader("To", input.EmailAddress)

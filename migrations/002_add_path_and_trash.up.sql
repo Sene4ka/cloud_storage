@@ -3,7 +3,14 @@ ADD COLUMN IF NOT EXISTS path TEXT NOT NULL DEFAULT '/',
 ADD COLUMN IF NOT EXISTS is_trashed BOOLEAN NOT NULL DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS trashed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 
-ALTER TABLE files ADD CONSTRAINT IF NOT EXISTS files_user_path_original_unique UNIQUE (user_id, path, original_name);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'files_user_path_original_unique'
+    ) THEN
+        ALTER TABLE files ADD CONSTRAINT files_user_path_original_unique UNIQUE (user_id, path, original_name);
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_files_user_path ON files(user_id, path);
 CREATE INDEX IF NOT EXISTS idx_files_user_trashed ON files(user_id, is_trashed) WHERE is_trashed = TRUE;
