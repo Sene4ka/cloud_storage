@@ -175,11 +175,7 @@ func (s *authService) Login(ctx context.Context, input *LoginInput) (*LoginOutpu
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
-	if !user.IsVerified {
-		return nil, fmt.Errorf("email not verified")
-	}
-
-	if user.Is2FAEnabled {
+	if user.Is2FAEnabled || !user.IsVerified {
 		code, err := generate2FACode()
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate 2FA code: %w", err)
@@ -253,6 +249,14 @@ func (s *authService) LoginComplete(ctx context.Context, input *LoginCompleteInp
 	user, err := s.userRepo.GetByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	if !user.IsVerified {
+		user.IsVerified = true
+		user.UpdatedAt = time.Now()
+		if err := s.userRepo.Update(ctx, user); err != nil {
+			return nil, fmt.Errorf("failed to update user verification: %w", err)
+		}
 	}
 
 	accessToken, refreshToken, err := s.tokenMgr.GenerateTokenPair(user.ID, user.Email)
